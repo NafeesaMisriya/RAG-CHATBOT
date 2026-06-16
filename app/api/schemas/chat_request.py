@@ -9,4 +9,4 @@ class ChatRequest(
 
     collection_name: str
 
-    session_id: str
+    session_id: str="default"

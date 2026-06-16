@@ -10,6 +10,17 @@ from app.api.routes.documents import (
 from app.api.routes.upload import (
     router as upload_router
 )
+from app.api.routes.chat_stream import (
+    router as stream_router
+)
+
+from app.api.routes.delete_document import (
+    router as delete_router
+)
+
+from app.api.routes.health import (
+    router as health_router
+)
 
 app = FastAPI(
     title="DocuMind API",
@@ -26,6 +37,18 @@ app.include_router(
 
 app.include_router(
     upload_router
+)
+
+app.include_router(
+    stream_router
+)
+
+app.include_router(
+    delete_router
+)
+
+app.include_router(
+    health_router
 )
 
 @app.get("/")

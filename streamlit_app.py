@@ -65,10 +65,17 @@ if "session_id" not in st.session_state:
 try:
 
     response = requests.get(
-        f"{API_URL}/documents"
+        f"{API_URL}/documents",
+        timeout=10
     )
 
-    documents = response.json()
+    if response.status_code == 200:
+
+        documents = response.json()
+
+    else:
+
+        documents = []
 
 except Exception:
 
@@ -106,7 +113,7 @@ AI-powered document assistant
 
     selected_document = None
 
-    if document_names:
+    if documents:
 
         selected_document = (
             st.selectbox(
@@ -115,6 +122,52 @@ AI-powered document assistant
             )
         )
 
+        if (
+            "active_document"
+            not in st.session_state
+        ):
+
+            st.session_state.active_document = (
+                selected_document
+            )
+
+        if (
+            st.session_state.active_document
+            !=
+            selected_document
+        ):
+
+            st.session_state.messages = []
+
+            st.session_state.session_id = (
+                str(uuid.uuid4())
+            )
+
+            st.session_state.active_document = (
+                selected_document
+            )
+
+        selected_collection = next(
+            doc["collection"]
+            for doc in documents
+            if doc["name"]
+            ==
+            selected_document
+        )
+
+        if st.button(
+            "❌ Delete Document"
+        ):
+
+            requests.delete(
+                f"http://127.0.0.1:8000/documents/{selected_collection}"
+            )
+
+            st.success(
+                "Deleted successfully"
+            )
+
+            st.rerun()
     else:
 
         st.info(
@@ -160,7 +213,19 @@ AI-powered document assistant
                     files=files
                 )
 
-                if response.status_code == 200:
+                result = response.json()
+
+                if (
+                    result["message"]
+                    ==
+                    "Document already indexed."
+                ):
+
+                    st.warning(
+                        "Document already indexed."
+                    )
+
+                else:
 
                     st.success(
                         "Document uploaded successfully."
@@ -168,12 +233,7 @@ AI-powered document assistant
 
                     st.rerun()
 
-                else:
-
-                    st.error(
-                        "Upload failed."
-                    )
-
+                
     st.divider()
 
     st.subheader(
@@ -246,25 +306,6 @@ if not selected_document:
 
     st.stop()
 
-# --------------------------------------------------
-# FIND COLLECTION
-# --------------------------------------------------
-
-selected_collection = None
-
-for doc in documents:
-
-    if (
-        doc["name"]
-        ==
-        selected_document
-    ):
-
-        selected_collection = (
-            doc["collection"]
-        )
-
-        break
 
 # --------------------------------------------------
 # ACTIVE DOCUMENT
@@ -290,6 +331,7 @@ for message in (
         st.markdown(
             message["content"]
         )
+
 
 # --------------------------------------------------
 # CHAT INPUT
@@ -320,12 +362,13 @@ if question:
         "assistant"
     ):
 
-        with st.spinner(
-            "Thinking..."
-        ):
+        placeholder = st.empty()
+
+        try:
 
             response = requests.post(
-                f"{API_URL}/chat",
+                f"{API_URL}/chat/stream",
+
                 json={
                     "question":
                     question,
@@ -335,20 +378,16 @@ if question:
 
                     "session_id":
                     st.session_state.session_id
-                }
+                },
+
+                stream=True,
+                timeout=150
             )
 
-            print(
-                "Status:",
+            if (
                 response.status_code
-            )
-
-            print(
-                "Response:",
-                response.text
-            )
-
-            if response.status_code != 200:
+                != 200
+            ):
 
                 st.error(
                     response.text
@@ -356,50 +395,41 @@ if question:
 
                 st.stop()
 
-            result = response.json()
+            answer = ""
 
-            answer = result[
-                "answer"
-            ]
-
-            st.markdown(
-                answer
-            )
-
-            if (
-                "sources" in result
-                and result["sources"]
+            for chunk in (
+                response.iter_content(
+                    chunk_size=None,
+                    decode_unicode=True
+                )
             ):
 
-                with st.expander(
-                    "📖 View Sources"
-                ):
+                if chunk:
 
-                    for source in (
-                        result["sources"]
-                    ):
+                    answer += chunk
 
-                        st.markdown(
-                            f"""
-### Page {source['page']}
+                    placeholder.markdown(
+                        answer + "▌"
+                    )
+            placeholder.markdown(
+                answer 
+            )
 
-**Similarity Score:** {source['score']:.4f}
+            st.session_state.messages.append(
+                {
+                    "role":
+                    "assistant",
 
----
+                    "content":
+                    answer
+                }
+            )
 
-{source['content'][:500]}
-"""
-                        )
+        except Exception as e:
 
-                        st.divider()
-
-    st.session_state.messages.append(
-        {
-            "role": "assistant",
-            "content": answer
-        }
-    )
-
+            st.error(
+                str(e)
+            )
 # --------------------------------------------------
 # FOOTER
 # --------------------------------------------------

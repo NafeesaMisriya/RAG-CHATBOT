@@ -1,7 +1,18 @@
 import os
-import time
-from groq import Groq 
+
 from dotenv import load_dotenv
+
+from langchain_groq import (
+    ChatGroq
+)
+
+from langchain_core.prompts import (
+    ChatPromptTemplate
+)
+
+from langchain_core.output_parsers import (
+    StrOutputParser
+)
 
 load_dotenv()
 
@@ -10,36 +21,72 @@ class Generator:
 
     def __init__(self):
 
-        self.client = Groq(
+        self.llm = ChatGroq(
             api_key=os.getenv(
                 "GROQ_API_KEY"
+            ),
+
+            model=
+            "llama-3.3-70b-versatile",
+
+            temperature=0.2
+        )
+
+        self.prompt = (
+            ChatPromptTemplate
+            .from_template(
+                """
+You are DocuMind,
+an educational document assistant.
+
+Answer ONLY using the provided context.
+
+Use the conversation history to resolve references such as:
+
+- it
+- its
+- they
+- them
+- this
+- that
+- these
+- those
+
+If the answer cannot be found
+inside the provided context, respond exactly:
+
+"I could not find the answer in the document."
+
+Conversation History:
+{history}
+
+Context:
+{context}
+
+Question:
+{question}
+
+Answer:
+"""
             )
         )
-        
-        
 
-        self.model_name = (
-            "llama-3.3-70b-versatile"
+        self.parser = (
+            StrOutputParser()
         )
 
-    def build_prompt(
+        self.chain = (
+            self.prompt
+            |
+            self.llm
+            |
+            self.parser
+        )
+
+    def _build_context_text(
         self,
-        query,
-        contexts,
-        history=None
+        contexts
     ):
-
-        if history is None:
-            history = []
-
-        history_text = ""
-
-        for msg in history:
-
-            history_text += (
-                f"{msg['role']}: "
-                f"{msg['content']}\n"
-            )
 
         context_text = ""
 
@@ -51,32 +98,23 @@ class Generator:
                 f"{context['content']}"
             )
 
-        prompt = f"""
-You are a helpful educational assistant.
+        return context_text
 
-Answer ONLY using the provided context.
+    def _build_history_text(
+        self,
+        history
+    ):
 
-Use the conversation history when resolving references
-such as "it", "they", "that structure", etc.
+        history_text = ""
 
-If the answer is not found in the context,
-say:
+        for msg in history:
 
-"I could not find the answer in the document."
+            history_text += (
+                f"{msg['role']}: "
+                f"{msg['content']}\n"
+            )
 
-Conversation History:
-{history_text}
-
-Context:
-{context_text}
-
-Question:
-{query}
-
-Answer:
-"""
-
-        return prompt
+        return history_text
 
     def generate(
         self,
@@ -86,35 +124,74 @@ Answer:
     ):
 
         if history is None:
+
             history = []
 
-        prompt = self.build_prompt(
-            query,
-            contexts,
-            history
-        )
-
-        response = (
-            self.client.chat.completions.create(
-                model=self.model_name,
-
-                messages=[
-                    {
-                        "role":
-                        "user",
-
-                        "content":
-                        prompt
-                    }
-                ],
-
-                temperature=0.2
+        context_text = (
+            self._build_context_text(
+                contexts
             )
         )
 
-        return (
-            response
-            .choices[0]
-            .message
-            .content
+        history_text = (
+            self._build_history_text(
+                history
+            )
         )
+
+        response = (
+            self.chain.invoke(
+                {
+                    "history":
+                    history_text,
+
+                    "context":
+                    context_text,
+
+                    "question":
+                    query
+                }
+            )
+        )
+
+        return response
+
+    def stream_generate(
+        self,
+        query,
+        contexts,
+        history=None
+    ):
+
+        if history is None:
+
+            history = []
+
+        context_text = (
+            self._build_context_text(
+                contexts
+            )
+        )
+
+        history_text = (
+            self._build_history_text(
+                history
+            )
+        )
+
+        for chunk in (
+            self.chain.stream(
+                {
+                    "history":
+                    history_text,
+
+                    "context":
+                    context_text,
+
+                    "question":
+                    query
+                }
+            )
+        ):
+
+            yield chunk

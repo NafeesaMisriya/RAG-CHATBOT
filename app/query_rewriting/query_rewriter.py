@@ -1,144 +1,6 @@
-"""import re
-
-
-class QueryRewriter:
-
-    def __init__(self):
-
-        self.reference_words = [
-            "it",
-            "its",
-            "they",
-            "them",
-            "their",
-            "this",
-            "that",
-            "these",
-            "those",
-            "he",
-            "she",
-            "his",
-            "her",
-            "him"
-        ]
-
-    def _extract_topic(
-        self,
-        history
-    ):
-
-        user_messages = [
-            msg["content"]
-            for msg in history
-            if msg["role"] == "user"
-        ]
-
-        if not user_messages:
-            return None
-
-        for message in reversed(
-            user_messages
-        ):
-
-            lower = message.lower()
-
-            patterns = [
-                r"what is (.+)",
-                r"who is (.+)",
-                r"define (.+)",
-                r"explain (.+)",
-                r"tell me about (.+)"
-            ]
-
-            for pattern in patterns:
-
-                match = re.search(
-                    pattern,
-                    lower
-                )
-
-                if match:
-
-                    topic = (
-                        match.group(1)
-                        .strip(" ?.")
-                    )
-
-                    if (
-                        len(topic.split())
-                        <= 8
-                    ):
-
-                        return topic
-
-        return (
-            user_messages[-1]
-            .strip(" ?.")
-        )
-
-    def rewrite(
-        self,
-        query,
-        history
-    ):
-
-        if not history:
-
-            return query
-
-        topic = self._extract_topic(
-            history
-        )
-
-        if not topic:
-
-            return query
-
-        q = query.lower()
-
-        if not any(
-            ref in q
-            for ref in self.reference_words
-        ):
-
-            return query
-
-        rewritten = query
-
-        replacements = {
-            "its": f"{topic}'s",
-            "it": topic,
-            "they": topic,
-            "them": topic,
-            "their": f"{topic}'s",
-            "this": topic,
-            "that": topic,
-            "these": topic,
-            "those": topic,
-            "he": topic,
-            "she": topic,
-            "his": f"{topic}'s",
-            "her": f"{topic}'s",
-            "him": topic
-        }
-
-        for old, new in (
-            replacements.items()
-        ):
-
-            rewritten = re.sub(
-                rf"\b{old}\b",
-                new,
-                rewritten,
-                flags=re.IGNORECASE
-            )
-
-        return rewritten"""
-
 import os
 
 from groq import Groq
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -159,6 +21,7 @@ class QueryRewriter:
         )
 
         self.reference_words = [
+
             "it",
             "its",
             "they",
@@ -172,7 +35,21 @@ class QueryRewriter:
             "she",
             "his",
             "her",
-            "him"
+            "him",
+
+            "more",
+            "summary",
+            "summarise",
+            "summarize",
+            "describe",
+            "details",
+            "detail",
+            "elaborate",
+            "continue",
+            "explain",
+            "expand",
+            "briefly",
+            "deeply"
         ]
 
     def needs_rewrite(
@@ -180,9 +57,31 @@ class QueryRewriter:
         query
     ):
 
-        query_lower = (
-            query.lower()
-        )
+        query_lower = query.lower()
+
+        followup_patterns = [
+
+            "tell me more",
+            "explain more",
+            "elaborate more",
+            "give more details",
+            "summarise it",
+            "summarize it",
+            "describe it",
+            "what about it",
+            "what are its",
+            "what are their",
+            "continue",
+            "expand",
+            "give summary",
+            "give a summary"
+        ]
+
+        if any(
+            pattern in query_lower
+            for pattern in followup_patterns
+        ):
+            return True
 
         return any(
             word in query_lower
@@ -202,12 +101,11 @@ class QueryRewriter:
                 query
             )
         ):
-
             return query
 
         conversation = ""
 
-        for msg in history[-6:]:
+        for msg in history[-10:]:
 
             conversation += (
                 f"{msg['role']}: "
@@ -215,25 +113,62 @@ class QueryRewriter:
             )
 
         prompt = f"""
-You are a query rewriting assistant.
+You are a query rewriting assistant for a RAG chatbot.
 
-Convert the current question into a
-fully standalone question.
+Your job is to convert follow-up questions into
+fully standalone retrieval questions.
 
-Use conversation history to resolve:
+Rules:
 
-- it
-- its
-- they
-- them
-- their
-- this
-- that
-- elaborate more
-- explain more
-- tell me more
+1. Resolve all references:
+   - it
+   - its
+   - they
+   - them
+   - their
+   - this
+   - that
+   - these
+   - those
+   - he
+   - she
 
-Return ONLY the rewritten query.
+2. Resolve vague follow-up requests:
+   - explain more
+   - elaborate more
+   - tell me more
+   - continue
+   - describe it
+   - summarise it
+   - give details
+
+3. Preserve the user's intent.
+
+4. Output ONLY the rewritten query.
+
+Examples:
+
+User: What is DNA?
+User: Explain its structure.
+
+Output:
+Explain the structure of DNA
+
+---
+
+User: What is mutation?
+User: Tell me more.
+
+Output:
+Tell me more about mutation
+
+---
+
+User: What is the Snake and the Mirror?
+User: Summarise it.
+
+Output:
+Summarise the story The Snake and the Mirror
 
 Conversation:
 
@@ -248,19 +183,13 @@ Current Question:
 
             response = (
                 self.client.chat.completions.create(
-                    model=
-                    self.model_name,
-
+                    model=self.model_name,
                     messages=[
                         {
-                            "role":
-                            "user",
-
-                            "content":
-                            prompt
+                            "role": "user",
+                            "content": prompt
                         }
                     ],
-
                     temperature=0
                 )
             )

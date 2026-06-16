@@ -35,16 +35,12 @@ class RAGChatbot:
             QueryRewriter()
         )
 
-    def ask(
+    def _get_contexts(
         self,
         question,
         collection_name,
-        history=None
+        history
     ):
-
-        if history is None:
-
-            history = []
 
         retrieval_query = (
             self.query_rewriter.rewrite(
@@ -80,12 +76,54 @@ class RAGChatbot:
             )
         )
 
+        print(
+            "\nTop Rerank Scores:"
+        )
+
+        for context in contexts[:5]:
+
+            print(
+                f"Page: "
+                f"{context['page']} | "
+                f"Score: "
+                f"{context['rerank_score']:.4f}"
+            )
+
+        # Keep existing behaviour:
+        # use only highest-ranked chunk
+
         if contexts:
 
             contexts = [
                 contexts[0]
             ]
 
+        return contexts
+
+    def ask(
+        self,
+        question,
+        collection_name,
+        history=None
+    ):
+
+        if history is None:
+
+            history = []
+
+        contexts = (
+            self._get_contexts(
+                question=
+                question,
+
+                collection_name=
+                collection_name,
+
+                history=
+                history
+            )
+        )
+        
         answer = (
             self.generator.generate(
                 query=
@@ -106,3 +144,39 @@ class RAGChatbot:
             "sources":
             contexts
         }
+
+    def stream_answer(
+        self,
+        question,
+        collection_name,
+        history=None
+    ):
+
+        if history is None:
+
+            history = []
+
+        contexts = (
+            self._get_contexts(
+                question=
+                question,
+
+                collection_name=
+                collection_name,
+
+                history=
+                history
+            )
+        )
+        yield from (
+            self.generator.stream_generate(
+                query=
+                question,
+
+                contexts=
+                contexts,
+
+                history=
+                history
+            )
+        )
