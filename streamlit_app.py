@@ -1,17 +1,8 @@
-import os
+import requests
+import uuid
 import streamlit as st
 
-from app.chat.rag_chatbot import (
-    RAGChatbot
-)
-
-from app.ingestion.document_ingestor import (
-    DocumentIngestor
-)
-
-from app.utils.document_registry import (
-    DocumentRegistry
-)
+API_URL = "http://127.0.0.1:8000"
 
 # --------------------------------------------------
 # PAGE CONFIG
@@ -39,20 +30,12 @@ st.markdown(
     text-align:center;
     font-size:3rem;
     font-weight:700;
-    margin-bottom:0;
 }
 
 .subtitle{
     text-align:center;
     color:#888;
     margin-bottom:2rem;
-}
-
-.source-box{
-    padding:12px;
-    border-radius:10px;
-    border:1px solid #444;
-    margin-bottom:10px;
 }
 
 </style>
@@ -64,15 +47,32 @@ st.markdown(
 # SESSION STATE
 # --------------------------------------------------
 
-if "chatbot" not in st.session_state:
-
-    st.session_state.chatbot = (
-        RAGChatbot()
-    )
-
 if "messages" not in st.session_state:
 
     st.session_state.messages = []
+
+if "session_id" not in st.session_state:
+
+    st.session_state.session_id = (
+        str(
+            uuid.uuid4()
+        )
+    )
+# --------------------------------------------------
+# LOAD DOCUMENTS FROM API
+# --------------------------------------------------
+
+try:
+
+    response = requests.get(
+        f"{API_URL}/documents"
+    )
+
+    documents = response.json()
+
+except Exception:
+
+    documents = []
 
 # --------------------------------------------------
 # SIDEBAR
@@ -86,22 +86,18 @@ with st.sidebar:
         """
 AI-powered document assistant
 
-• PDF Question Answering  
-• Semantic Search  
-• Conversation Memory  
+• PDF Question Answering
+• Semantic Search
+• Conversation Memory
 • Context-Aware Responses
 """
     )
 
     st.divider()
 
-    # ----------------------------
-    # AVAILABLE DOCUMENTS
-    # ----------------------------
-
-    documents = (
-        DocumentRegistry.get_documents()
-    )
+    # -------------------------
+    # DOCUMENT SELECTOR
+    # -------------------------
 
     document_names = [
         doc["name"]
@@ -122,17 +118,17 @@ AI-powered document assistant
     else:
 
         st.info(
-            "No documents uploaded yet."
+            "No documents uploaded."
         )
 
     st.divider()
 
-    # ----------------------------
-    # UPLOAD PDF
-    # ----------------------------
+    # -------------------------
+    # PDF UPLOAD
+    # -------------------------
 
     st.subheader(
-        "Upload New PDF"
+        "Upload PDF"
     )
 
     uploaded_pdf = st.file_uploader(
@@ -147,79 +143,58 @@ AI-powered document assistant
             use_container_width=True
         ):
 
-            collection_name = (
-                uploaded_pdf.name
-                .replace(".pdf", "")
-                .replace(" ", "_")
-                .lower()
-            )
+            with st.spinner(
+                "Uploading..."
+            ):
 
-            exists = any(
-                doc["collection"]
-                == collection_name
-                for doc in documents
-            )
-
-            if exists:
-
-                st.warning(
-                    "Document already ingested."
-                )
-
-            else:
-
-                with st.spinner(
-                    "Processing document..."
-                ):
-
-                    os.makedirs(
-                        "data/uploads",
-                        exist_ok=True
-                    )
-
-                    pdf_path = os.path.join(
-                        "data/uploads",
-                        uploaded_pdf.name
-                    )
-
-                    with open(
-                        pdf_path,
-                        "wb"
-                    ) as f:
-
-                        f.write(
-                            uploaded_pdf.getbuffer()
-                        )
-
-                    ingestor = (
-                        DocumentIngestor()
-                    )
-
-                    ingestor.ingest(
-                        pdf_path=pdf_path,
-                        collection_name=
-                        collection_name
-                    )
-
-                    DocumentRegistry.register(
-                        document_name=
+                files = {
+                    "file": (
                         uploaded_pdf.name,
-
-                        collection_name=
-                        collection_name
+                        uploaded_pdf.getvalue(),
+                        "application/pdf"
                     )
+                }
 
-                st.success(
-                    "Document indexed successfully."
+                response = requests.post(
+                    f"{API_URL}/upload",
+                    files=files
                 )
 
-                st.rerun()
+                if response.status_code == 200:
+
+                    st.success(
+                        "Document uploaded successfully."
+                    )
+
+                    st.rerun()
+
+                else:
+
+                    st.error(
+                        "Upload failed."
+                    )
 
     st.divider()
 
-    # ----------------------------
-    # CLEAR CHAT
-    # ----------------------------
+    st.subheader(
+        "Indexed Documents"
+    )
+
+    if documents:
+
+        for doc in documents:
+
+            st.markdown(
+                f"📄 {doc['name']}"
+            )
+
+    else:
+
+        st.caption(
+            "No documents indexed."
+        )
+
+    st.divider()
 
     if st.button(
         "🗑 Clear Conversation",
@@ -228,14 +203,14 @@ AI-powered document assistant
 
         st.session_state.messages = []
 
-        try:
-
-            st.session_state.chatbot.memory.clear()
-
-        except:
-            pass
+        st.session_state.session_id = (
+            str(
+                uuid.uuid4()
+            )
+        )
 
         st.rerun()
+
 
 # --------------------------------------------------
 # HEADER
@@ -260,43 +235,16 @@ Chat intelligently with your documents
 )
 
 # --------------------------------------------------
-# NO DOCUMENT SELECTED
+# NO DOCUMENT
 # --------------------------------------------------
 
 if not selected_document:
 
     st.info(
-        """
-Upload and ingest a PDF to start chatting.
-"""
+        "Upload a PDF to begin."
     )
 
     st.stop()
-
-# --------------------------------------------------
-# CURRENT DOCUMENT
-# --------------------------------------------------
-
-st.success(
-    f"📖 Currently Chatting With: "
-    f"{selected_document}"
-)
-
-# --------------------------------------------------
-# CHAT HISTORY
-# --------------------------------------------------
-
-for message in (
-    st.session_state.messages
-):
-
-    with st.chat_message(
-        message["role"]
-    ):
-
-        st.markdown(
-            message["content"]
-        )
 
 # --------------------------------------------------
 # FIND COLLECTION
@@ -319,11 +267,36 @@ for doc in documents:
         break
 
 # --------------------------------------------------
+# ACTIVE DOCUMENT
+# --------------------------------------------------
+
+st.success(
+    f"📖 Current Document: "
+    f"{selected_document}"
+)
+
+# --------------------------------------------------
+# CHAT HISTORY
+# --------------------------------------------------
+
+for message in (
+    st.session_state.messages
+):
+
+    with st.chat_message(
+        message["role"]
+    ):
+
+        st.markdown(
+            message["content"]
+        )
+
+# --------------------------------------------------
 # CHAT INPUT
 # --------------------------------------------------
 
 question = st.chat_input(
-    "Ask something about your document..."
+    "Ask a question..."
 )
 
 if question:
@@ -351,27 +324,50 @@ if question:
             "Thinking..."
         ):
 
-            result = (
-                st.session_state
-                .chatbot
-                .ask(
+            response = requests.post(
+                f"{API_URL}/chat",
+                json={
+                    "question":
                     question,
-                    collection_name=
-                    selected_collection
-                )
+
+                    "collection_name":
+                    selected_collection,
+
+                    "session_id":
+                    st.session_state.session_id
+                }
             )
 
-            answer = (
-                result["answer"]
+            print(
+                "Status:",
+                response.status_code
             )
+
+            print(
+                "Response:",
+                response.text
+            )
+
+            if response.status_code != 200:
+
+                st.error(
+                    response.text
+                )
+
+                st.stop()
+
+            result = response.json()
+
+            answer = result[
+                "answer"
+            ]
 
             st.markdown(
                 answer
             )
 
             if (
-                "sources"
-                in result
+                "sources" in result
                 and result["sources"]
             ):
 

@@ -2,5 +2,17 @@
     {
         "name": "Biology_txt.pdf",
         "collection": "biology_txt"
+    },
+    {
+        "name": "Chemistry.pdf",
+        "collection": "chemistry"
+    },
+    {
+        "name": "English.pdf",
+        "collection": "english"
+    },
+    {
+        "name": "Social.pdf",
+        "collection": "social"
     }
 ]

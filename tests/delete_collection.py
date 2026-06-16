@@ -1,11 +1,11 @@
-"""from app.retrieval.qdrant_manager import (
+from app.retrieval.qdrant_manager import (
     QdrantManager
 )
 
 qdrant = QdrantManager()
 
-qdrant.delete_collection(
-    "documents"
+qdrant.client.delete_collection(
+    collection_name="documents"
 )
 """
 
@@ -15,10 +15,12 @@ from app.retrieval.qdrant_manager import (
     QdrantManager
 )
 
-qdrant = QdrantManager()
+q = QdrantManager()
+
+info = q.client.get_collection(
+    "documents"
+)
 
 print(
-    qdrant.get_collection_info(
-        "documents"
-    )
-)
+    info.points_count
+)"""
