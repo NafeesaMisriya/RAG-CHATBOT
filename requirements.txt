@@ -1,0 +1,6 @@
+llama-index
+qdrant-client
+sentence-transformers
+google-generativeai
+python-dotenv
+pymupdf
