@@ -68,11 +68,6 @@ class Reranker:
                 f"{item['rerank_score']:.4f}"
             )
 
-        filtered = [
-            item
-            for item in ranked
-            if item["rerank_score"]
-            >= min_score
-        ]
+    
 
-        return filtered[:top_k]
+        return ranked[:top_k]

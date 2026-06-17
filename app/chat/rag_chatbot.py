@@ -62,7 +62,7 @@ class RAGChatbot:
                 collection_name=
                 collection_name,
 
-                limit=5
+                limit=20
             )
         )
 
@@ -88,15 +88,20 @@ class RAGChatbot:
                 f"Score: "
                 f"{context['rerank_score']:.4f}"
             )
+            print(
+                context["content"][:2000]
+            )
+
+            print(
+                "\n---------------------\n")
 
         # Keep existing behaviour:
         # use only highest-ranked chunk
 
         if contexts:
 
-            contexts = [
-                contexts[0]
-            ]
+            contexts = contexts[:3]
+    
 
         return contexts
 
@@ -123,7 +128,22 @@ class RAGChatbot:
                 history
             )
         )
-        
+        print("\n========== CONTEXTS SENT TO LLM ==========\n")
+
+        for c in contexts:
+
+            print(
+                f"\nPAGE {c['page']}\n"
+            )
+
+            print(
+                c["content"][:1500]
+            )
+
+        print(
+            "\n==========================================\n"
+        )
+                
         answer = (
             self.generator.generate(
                 query=

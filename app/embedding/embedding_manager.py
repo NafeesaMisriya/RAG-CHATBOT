@@ -13,7 +13,7 @@ class EmbeddingManager:
 
         self.model = (
             SentenceTransformer(
-                "sentence-transformers/all-MiniLM-L6-v2"
+                "BAAI/bge-small-en-v1.5"
             )
         )
 
@@ -62,7 +62,10 @@ class EmbeddingManager:
                 chunk.page,
 
                 source_document=
-                chunk.source_document
+                chunk.source_document,
+
+                metadata=
+                chunk.metadata
             )
 
             vector_records.append(

@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+
 @dataclass
 class VectorRecord:
 
@@ -12,3 +13,5 @@ class VectorRecord:
     page: int
 
     source_document: str
+
+    metadata: dict

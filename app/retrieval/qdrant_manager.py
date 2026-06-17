@@ -22,7 +22,7 @@ class QdrantManager:
             url=os.getenv("QDRANT_URL"),
             api_key=os.getenv("QDRANT_API_KEY"),
             timeout=120
-            
+
         )
 
     def create_collection(
@@ -174,7 +174,10 @@ class QdrantManager:
                         record.page,
 
                         "source_document":
-                        record.source_document
+                        record.source_document,
+
+                        "metadata":
+                        record.metadata
                     }
                 )
 

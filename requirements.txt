@@ -32,3 +32,4 @@ requests
 # Optional (used by sentence-transformers)
 torch
 transformers
+pillo

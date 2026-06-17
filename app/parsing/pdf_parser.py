@@ -1,8 +1,16 @@
 import fitz
 import uuid
+
 from pathlib import Path
 
 from app.models.node import Node
+
+from app.ocr.ocr_extractor import (
+    OCRExtractor
+)
+from app.vision.image_captioner import (
+    ImageCaptioner
+)
 
 
 class PDFParser:
@@ -12,8 +20,18 @@ class PDFParser:
         pdf_path: str,
         image_output_dir: str = "data/extracted/images"
     ):
+
         self.pdf_path = pdf_path
-        self.image_output_dir = image_output_dir
+
+        self.image_output_dir = (
+            image_output_dir
+        )
+
+        self.ocr = OCRExtractor()
+
+        self.captioner = (
+            ImageCaptioner()
+        )
 
         Path(
             self.image_output_dir
@@ -24,16 +42,59 @@ class PDFParser:
 
     def _create_text_node(
         self,
-        text: str,
-        page_num: int
+        text,
+        page_num
     ):
 
+        lines = [
+            line.strip()
+            for line in text.split("\n")
+            if line.strip()
+        ]
+
+        detected_title = None
+
+        detected_unit = None
+
+        for line in lines[:15]:
+
+            if (
+                len(line) > 5
+                and
+                len(line) < 100
+            ):
+
+                if (
+                    "UNIT" in line.upper()
+                ):
+
+                    detected_unit = line
+
+                elif (
+                    detected_title is None
+                ):
+
+                    detected_title = line
+
         return Node(
-            node_id=str(uuid.uuid4()),
+            node_id=str(
+                uuid.uuid4()
+            ),
+
             node_type="text",
+
             page=page_num,
+
             content=text,
-            source_document=self.pdf_path
+
+            source_document=
+            self.pdf_path,
+
+            unit=
+            detected_unit,
+
+            title=
+            detected_title
         )
 
     def _extract_images(
@@ -45,7 +106,9 @@ class PDFParser:
 
         image_nodes = []
 
-        image_list = page.get_images()
+        image_list = (
+            page.get_images()
+        )
 
         for img_index, img in enumerate(
             image_list
@@ -91,16 +154,40 @@ class PDFParser:
                         image_bytes
                     )
 
+                # -------------------------
+                # BLIP CAPTION
+                # -------------------------
+
+                caption = (
+                    self.captioner
+                    .caption_image(
+                        str(image_path)
+                    )
+                )
+
+                print(
+                    f"Image Caption: "
+                    f"{caption}"
+                )
+
                 image_node = Node(
                     node_id=str(
                         uuid.uuid4()
                     ),
+
                     node_type="image",
+
                     page=page_num,
+
                     image_path=str(
                         image_path
                     ),
-                    source_document=self.pdf_path
+
+                    source_document=
+                    self.pdf_path,
+
+                    caption=
+                    caption
                 )
 
                 image_nodes.append(
@@ -110,13 +197,15 @@ class PDFParser:
             except Exception as e:
 
                 print(
-                    f"Image extraction error:"
-                    f" {e}"
+                    f"Image extraction error: "
+                    f"{e}"
                 )
 
         return image_nodes
-
-    def parse(self,extract_images=False):
+    def parse(
+        self,
+        extract_images=False
+    ):
 
         nodes = []
 
@@ -139,10 +228,9 @@ class PDFParser:
                 )
 
                 text = (
-                    page.get_text()
-                )
-                text = (
-                    page.get_text()
+                    self.ocr.extract_text(
+                        page
+                    )
                 )
 
                 print(
@@ -151,10 +239,6 @@ class PDFParser:
                 )
 
                 if text.strip():
-                    print(
-                        f"Creating text node "
-                        f"for page {page_num}"
-                    )
 
                     text_node = (
                         self._create_text_node(

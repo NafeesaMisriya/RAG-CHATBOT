@@ -213,26 +213,34 @@ AI-powered document assistant
                     files=files
                 )
 
-                result = response.json()
+                print("Status Code:", response.status_code)
+                print("Response Text:", response.text)
 
-                if (
-                    result["message"]
-                    ==
-                    "Document already indexed."
-                ):
+                if response.status_code != 200:
 
-                    st.warning(
-                        "Document already indexed."
-                    )
+                    st.error(response.text)
 
                 else:
 
-                    st.success(
-                        "Document uploaded successfully."
-                    )
+                    result = response.json()
 
-                    st.rerun()
+                    if (
+                        result.get("message")
+                        ==
+                        "Document already exists."
+                    ):
 
+                        st.warning(
+                            "Document already indexed."
+                        )
+
+                    else:
+
+                        st.success(
+                            "Document uploaded successfully."
+                        )
+
+                        st.rerun()
                 
     st.divider()
 

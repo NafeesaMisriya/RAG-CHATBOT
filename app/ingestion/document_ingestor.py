@@ -47,7 +47,7 @@ class DocumentIngestor:
         )
 
         nodes = parser.parse(
-            extract_images=False
+            extract_images=True
         )
 
         print(
@@ -67,6 +67,8 @@ class DocumentIngestor:
         print(
             f"Chunks: {len(chunks)}"
         )
+
+        
 
         print(
             "\nGenerating embeddings..."
