@@ -4,7 +4,7 @@ import requests
 import uuid
 import streamlit as st
 
-API_URL = "http://127.0.0.1:8000"
+API_URL = "http://127.0.0.1:8010"
 
 
 def absolute_url(url):
@@ -213,7 +213,7 @@ AI-powered document assistant
         ):
 
             requests.delete(
-                f"http://127.0.0.1:8000/documents/{selected_collection}"
+                f"{API_URL}/documents/{selected_collection}"
             )
 
             st.success(
