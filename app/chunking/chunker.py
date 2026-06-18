@@ -35,6 +35,23 @@ class Chunker:
                 else ""
             )
 
+            ocr_text = (
+                node.ocr_text
+                if node.ocr_text
+                else ""
+            )
+
+            image_content = (
+                f"IMAGE CONTENT: {caption}"
+            )
+
+            if ocr_text:
+
+                image_content += (
+                    f"\nIMAGE TEXT: "
+                    f"{ocr_text}"
+                )
+
             return [
                 Chunk(
                     chunk_id=str(
@@ -44,7 +61,7 @@ class Chunker:
                     node_id=node.node_id,
 
                     content=
-                    f"IMAGE CONTENT: {caption}",
+                    image_content,
 
                     page=node.page,
 

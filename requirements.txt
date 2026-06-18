@@ -32,4 +32,10 @@ requests
 # Optional (used by sentence-transformers)
 torch
 transformers
-pillo
+pillow
+
+# OCR
+pytesseract
+
+# Table extraction
+pdfplumber

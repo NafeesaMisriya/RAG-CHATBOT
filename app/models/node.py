@@ -22,3 +22,7 @@ class Node:
     title: Optional[str] = None
 
     caption: Optional[str] = None
+
+    table_data: Optional[str] = None
+
+    ocr_text: Optional[str] = None

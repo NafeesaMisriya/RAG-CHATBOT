@@ -1,4 +1,7 @@
+import os
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.chat import (
     router as chat_router
@@ -25,6 +28,17 @@ from app.api.routes.health import (
 app = FastAPI(
     title="DocuMind API",
     version="1.0"
+)
+
+# Serve uploaded PDFs and extracted images so the UI can render
+# clickable source links (e.g. /files/uploads/foo.pdf#page=3) and
+# image previews (/files/extracted/images/<collection>/<file>).
+os.makedirs("data", exist_ok=True)
+
+app.mount(
+    "/files",
+    StaticFiles(directory="data"),
+    name="files"
 )
 
 app.include_router(

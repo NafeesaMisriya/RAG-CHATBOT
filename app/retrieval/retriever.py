@@ -19,11 +19,90 @@ class Retriever:
             QdrantManager()
         )
 
+    def _apply_keyword_boost(
+        self,
+        query,
+        contexts
+    ):
+
+        query_words = set(
+            query.lower().split()
+        )
+
+        for context in contexts:
+
+            boost = 0
+
+            content = (
+                context["content"]
+                .lower()
+            )
+
+            metadata = (
+                context.get(
+                    "metadata",
+                    {}
+                )
+            )
+
+            title = str(
+                metadata.get(
+                    "title",
+                    ""
+                )
+            ).lower()
+
+            unit = str(
+                metadata.get(
+                    "unit",
+                    ""
+                )
+            ).lower()
+
+            # Title boost
+
+            for word in query_words:
+
+                if word in title:
+
+                    boost += 5
+
+            # Unit boost
+
+            for word in query_words:
+
+                if word in unit:
+
+                    boost += 2
+
+            # Exact content matches
+
+            for word in query_words:
+
+                if word in content:
+
+                    boost += 0.5
+
+            context[
+                "hybrid_score"
+            ] = (
+                context["score"]
+                + boost
+            )
+
+        contexts.sort(
+            key=lambda x:
+            x["hybrid_score"],
+            reverse=True
+        )
+
+        return contexts
+
     def retrieve(
         self,
         query: str,
         collection_name: str,
-        limit: int = 5
+        limit: int = 20
     ):
 
         query_vector = (
@@ -40,7 +119,7 @@ class Retriever:
                 query_vector=
                 query_vector,
 
-                limit=limit
+                limit=50
             )
         )
 
@@ -48,21 +127,56 @@ class Retriever:
 
         for point in results.points:
 
-            contexts.append(
-                {
-                    
-                    "content":
-                    point.payload["content"],
-
-                    "page":
-                    point.payload["page"],
-
-                    "source_document":
-                    point.payload["source_document"],
-
-                    "score":
-                    point.score
-                }
+            metadata = (
+                point.payload.get(
+                    "metadata",
+                    {}
+                )
             )
-                
-        return contexts
+
+            contexts.append(
+            {
+                "content":
+                point.payload["content"],
+
+                "page":
+                point.payload["page"],
+
+                "source_document":
+                point.payload["source_document"],
+
+                "score":
+                point.score,
+
+                "metadata":
+                metadata,
+
+                "title":
+                metadata.get(
+                    "title"
+                ),
+
+                "unit":
+                metadata.get(
+                    "unit"
+                ),
+
+                "node_type":
+                metadata.get(
+                    "node_type"
+                ),
+
+                "image_path":
+                metadata.get(
+                    "image_path"
+                )
+            }
+            )
+        contexts = (
+            self._apply_keyword_boost(
+                query,
+                contexts
+            )
+        )
+
+        return contexts[:limit]

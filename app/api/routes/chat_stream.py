@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
@@ -27,6 +29,8 @@ def stream_chat(
     request: ChatRequest
 ):
 
+    
+    
     history = (
         SessionMemory.get_history(
             request.session_id
@@ -43,7 +47,7 @@ def stream_chat(
 
         full_answer = ""
 
-        for chunk in (
+        for event in (
             chatbot.stream_answer(
                 question=
                 request.question,
@@ -56,18 +60,34 @@ def stream_chat(
             )
         ):
 
-            full_answer += chunk
+            if event["type"] == "token":
 
-            yield chunk
+                full_answer += event["data"]
 
+            yield (
+                "data: "
+                + json.dumps(event)
+                + "\n\n"
+            )
+
+        # Persist the assistant turn exactly once, after the full
+        # answer has streamed. (Previously the client made a second
+        # /chat call that regenerated and re-saved the answer, which
+        # duplicated history and doubled LLM cost.)
         SessionMemory.add_message(
             request.session_id,
             "assistant",
             full_answer
         )
 
+        yield (
+            "data: "
+            + json.dumps({"type": "done"})
+            + "\n\n"
+        )
+
     return StreamingResponse(
         generate(),
         media_type=
-        "text/plain"
+        "text/event-stream"
     )

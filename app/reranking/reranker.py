@@ -15,23 +15,27 @@ class Reranker:
         self,
         query,
         contexts,
-        top_k=3,
-        min_score=-10.0
+        top_k=15
     ):
 
         if not contexts:
+
             return []
 
         pairs = [
+
             (
                 query,
                 context["content"]
             )
+
             for context in contexts
         ]
 
-        scores = self.model.predict(
-            pairs
+        scores = (
+            self.model.predict(
+                pairs
+            )
         )
 
         ranked = []
@@ -56,18 +60,20 @@ class Reranker:
         )
 
         print(
-            "\nTop Rerank Scores:"
+            "\n===== RERANK RESULTS ====="
         )
 
         for item in ranked[:10]:
 
             print(
-                f"Page: "
+                f"Page "
                 f"{item['page']} | "
-                f"Score: "
-                f"{item['rerank_score']:.4f}"
+                f"Hybrid "
+                f"{item.get('hybrid_score',0):.4f} | "
+                f"Rerank "
+                f"{item['rerank_score']:.4f} | "
+                f"Type "
+                f"{item.get('node_type')}"
             )
-
-    
 
         return ranked[:top_k]

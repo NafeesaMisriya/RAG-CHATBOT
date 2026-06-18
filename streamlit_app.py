@@ -1,9 +1,47 @@
+import json
 import requests
 import uuid
 import streamlit as st
 
 API_URL = "http://127.0.0.1:8000"
 
+
+def absolute_url(url):
+
+    """Turn a server-relative '/files/...' path into a full URL the
+    browser/Streamlit can fetch."""
+
+    if not url:
+
+        return None
+
+    if url.startswith("http"):
+
+        return url
+
+    return f"{API_URL}{url}"
+
+
+def clean_source_text(text):
+
+    cleaned = []
+
+    for line in text.splitlines():
+
+        upper = line.strip().upper()
+
+        if (
+            upper.startswith("TITLE:")
+            or
+            upper.startswith("UNIT:")
+            or
+            upper.startswith("PAGE:")
+        ):
+            continue
+
+        cleaned.append(line)
+
+    return "\n".join(cleaned)
 # --------------------------------------------------
 # PAGE CONFIG
 # --------------------------------------------------
@@ -47,16 +85,22 @@ st.markdown(
 # SESSION STATE
 # --------------------------------------------------
 
+if "document_chats" not in st.session_state:
+
+    st.session_state.document_chats = {}
+
+if "session_ids" not in st.session_state:
+
+    st.session_state.session_ids = {}
+
 if "messages" not in st.session_state:
 
     st.session_state.messages = []
 
 if "session_id" not in st.session_state:
 
-    st.session_state.session_id = (
-        str(
-            uuid.uuid4()
-        )
+    st.session_state.session_id = str(
+        uuid.uuid4()
     )
 # --------------------------------------------------
 # LOAD DOCUMENTS FROM API
@@ -122,30 +166,6 @@ AI-powered document assistant
             )
         )
 
-        if (
-            "active_document"
-            not in st.session_state
-        ):
-
-            st.session_state.active_document = (
-                selected_document
-            )
-
-        if (
-            st.session_state.active_document
-            !=
-            selected_document
-        ):
-
-            st.session_state.messages = []
-
-            st.session_state.session_id = (
-                str(uuid.uuid4())
-            )
-
-            st.session_state.active_document = (
-                selected_document
-            )
 
         selected_collection = next(
             doc["collection"]
@@ -153,6 +173,38 @@ AI-powered document assistant
             if doc["name"]
             ==
             selected_document
+        )
+
+        if (
+            selected_collection
+            not in st.session_state.document_chats
+        ):
+
+            st.session_state.document_chats[
+                selected_collection
+            ] = []
+
+        if (
+            selected_collection
+            not in st.session_state.session_ids
+        ):
+
+            st.session_state.session_ids[
+                selected_collection
+            ] = str(
+                uuid.uuid4()
+            )
+
+        st.session_state.messages = (
+            st.session_state.document_chats[
+                selected_collection
+            ]
+        )
+
+        st.session_state.session_id = (
+            st.session_state.session_ids[
+                selected_collection
+            ]
         )
 
         if st.button(
@@ -269,15 +321,32 @@ AI-powered document assistant
         use_container_width=True
     ):
 
-        st.session_state.messages = []
+        if documents:
 
-        st.session_state.session_id = (
-            str(
+            current_collection = next(
+                doc["collection"]
+                for doc in documents
+                if doc["name"] ==
+                selected_document
+            )
+
+            st.session_state.document_chats[
+                current_collection
+            ] = []
+
+            st.session_state.session_ids[
+                current_collection
+            ] = str(
                 uuid.uuid4()
             )
-        )
 
-        st.rerun()
+            st.session_state.messages = []
+
+            st.session_state.session_id = (
+                st.session_state.session_ids[
+                    current_collection
+                ]
+            )
 
 
 # --------------------------------------------------
@@ -403,34 +472,174 @@ if question:
 
                 st.stop()
 
+            # ----------------------------------------------------
+            # Single SSE stream carries the answer tokens AND the
+            # source/image metadata. No second /chat call, so the
+            # answer is generated and stored exactly once.
+            # ----------------------------------------------------
+
             answer = ""
 
-            for chunk in (
-                response.iter_content(
-                    chunk_size=None,
+            images = []
+
+            sources = []
+
+            for line in (
+                response.iter_lines(
                     decode_unicode=True
                 )
             ):
 
-                if chunk:
+                if not line:
 
-                    answer += chunk
+                    continue
+
+                if not line.startswith("data: "):
+
+                    continue
+
+                payload = json.loads(
+                    line[len("data: "):]
+                )
+
+                event_type = payload.get("type")
+
+                if event_type == "token":
+
+                    answer += payload["data"]
 
                     placeholder.markdown(
                         answer + "▌"
                     )
+
+                elif event_type == "sources":
+
+                    sources = payload["data"]
+
+                elif event_type == "images":
+
+                    images = payload["data"]
+
             placeholder.markdown(
-                answer 
+                answer
             )
 
-            st.session_state.messages.append(
-                {
-                    "role":
-                    "assistant",
+            # -------------------
+            # DISPLAY IMAGES
+            # -------------------
 
-                    "content":
-                    answer
-                }
+            if images:
+
+                st.markdown(
+                    "### 🖼 Retrieved Images"
+                )
+
+                for image in images:
+
+                    image_src = (
+                        absolute_url(
+                            image.get("image_url")
+                        )
+                        or
+                        image.get("image_path")
+                    )
+
+                    if image_src:
+
+                        try:
+
+                            st.image(
+                                image_src,
+                                use_container_width=True
+                            )
+
+                            st.caption(
+                                f"Page {image['page']}"
+                            )
+
+                        except Exception:
+
+                            st.warning(
+                                f"Image not found: "
+                                f"{image_src}"
+                            )
+
+            # -------------------
+            # DISPLAY SOURCES
+            # -------------------
+
+            if sources:
+
+                with st.expander(
+                    "📖 Sources"
+                ):
+
+                    for source in sources:
+
+                        title = (
+                            source.get("title")
+                            or
+                            "Document Source"
+                        )
+
+                        cleaned_content = (
+                            clean_source_text(
+                                source.get("content")
+                                or ""
+                            )
+                        )
+
+                        snippet = (
+                            cleaned_content[:500]
+                        )
+
+                        st.markdown(
+                            f"### {title}"
+                        )
+
+                        source_url = (
+                            absolute_url(
+                                source.get("source_url")
+                            )
+                        )
+
+                        if source_url:
+
+                            st.markdown(
+                                f"📄 [Open page "
+                                f"{source['page']}]"
+                                f"({source_url})"
+                            )
+
+                        else:
+
+                            st.markdown(
+                                f"📄 Page "
+                                f"{source['page']}"
+                            )
+
+                        st.markdown(
+                            f"{snippet}..."
+                        )
+
+                        st.divider()
+
+            assistant_message = {
+                "role":
+                "assistant",
+
+                "content":
+                answer
+            }
+
+            st.session_state.messages.append(
+                assistant_message
+            )
+
+            st.session_state.document_chats[
+                selected_collection
+            ].append(
+                assistant_message
             )
 
         except Exception as e:

@@ -1,3 +1,5 @@
+import os
+
 from app.parsing.pdf_parser import (
     PDFParser
 )
@@ -16,7 +18,9 @@ from app.retrieval.qdrant_manager import (
 from app.utils.document_registry import (
     DocumentRegistry
 )
-
+from app.fusion.page_fusion import (
+    PageFusion
+)
 
 class DocumentIngestor:
 
@@ -43,7 +47,9 @@ class DocumentIngestor:
         )
 
         parser = PDFParser(
-            pdf_path
+            pdf_path,
+            collection_name=
+            collection_name
         )
 
         nodes = parser.parse(
@@ -52,6 +58,43 @@ class DocumentIngestor:
 
         print(
             f"Nodes: {len(nodes)}"
+        )
+
+        fusion = PageFusion()
+
+        image_nodes = [
+
+            node
+
+            for node in nodes
+
+            if node.node_type == "image"
+        ]
+
+        non_image_nodes = [
+
+            node
+
+            for node in nodes
+
+            if node.node_type != "image"
+        ]
+
+        fused_nodes = (
+            fusion.fuse(
+                non_image_nodes
+            )
+        )
+
+        nodes = (
+            fused_nodes
+            +
+            image_nodes
+        )
+
+        print(
+            f"Fused Nodes: "
+            f"{len(nodes)}"
         )
 
         print(
@@ -68,12 +111,24 @@ class DocumentIngestor:
             f"Chunks: {len(chunks)}"
         )
 
-        
+        for i, chunk in enumerate(chunks[:10]):
+            print("\n===================")
+            print(f"Chunk {i}")
+            print(chunk.content[:1000])
 
         print(
             "\nGenerating embeddings..."
         )
 
+        image_chunks = [
+            c for c in chunks
+            if c.metadata.get("node_type") == "image"
+        ]
+
+        print(
+            f"\nImage Chunks: "
+            f"{len(image_chunks)}"
+        )
         vector_records = (
             self.embedder.embed_chunks(
                 chunks
@@ -121,7 +176,7 @@ class DocumentIngestor:
             vector_records
         )
         document_name = (
-            pdf_path.split("\\")[-1]
+            os.path.basename(pdf_path)
         )
 
         DocumentRegistry.register(

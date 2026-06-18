@@ -58,3 +58,32 @@ class OCRExtractor:
             )
 
             return text
+
+    def extract_image_text(
+        self,
+        image_path
+    ):
+
+        try:
+
+            image = Image.open(
+                image_path
+            ).convert(
+                "RGB"
+            )
+
+            ocr_text = (
+                pytesseract.image_to_string(
+                    image
+                )
+            )
+
+            return ocr_text.strip()
+
+        except Exception as e:
+
+            print(
+                f"Image OCR Error: {e}"
+            )
+
+            return ""

@@ -11,6 +11,9 @@ from app.ocr.ocr_extractor import (
 from app.vision.image_captioner import (
     ImageCaptioner
 )
+from app.parsing.table_extractor import (
+    TableExtractor
+)
 
 
 class PDFParser:
@@ -18,10 +21,33 @@ class PDFParser:
     def __init__(
         self,
         pdf_path: str,
-        image_output_dir: str = "data/extracted/images"
+        collection_name: str = None,
+        image_output_dir: str = None
     ):
 
         self.pdf_path = pdf_path
+
+        # ----------------------------------------------------------
+        # Cross-PDF image isolation:
+        # Each document writes its extracted images into a dedicated
+        # sub-directory keyed by collection (or the PDF file stem).
+        # Without this, files like "page_1_img_0.png" collide across
+        # PDFs and a later ingestion overwrites an earlier document's
+        # images, so the stored image_path serves the wrong picture.
+        # ----------------------------------------------------------
+
+        if image_output_dir is None:
+
+            namespace = (
+                collection_name
+                if collection_name
+                else Path(pdf_path).stem
+            )
+
+            image_output_dir = str(
+                Path("data/extracted/images")
+                / namespace
+            )
 
         self.image_output_dir = (
             image_output_dir
@@ -31,6 +57,9 @@ class PDFParser:
 
         self.captioner = (
             ImageCaptioner()
+        )
+        self.table_extractor = (
+            TableExtractor()
         )
 
         Path(
@@ -170,6 +199,27 @@ class PDFParser:
                     f"{caption}"
                 )
 
+                # -------------------------
+                # IMAGE OCR
+                # Extract any text embedded
+                # inside the figure/diagram
+                # so it becomes searchable.
+                # -------------------------
+
+                ocr_text = (
+                    self.ocr
+                    .extract_image_text(
+                        str(image_path)
+                    )
+                )
+
+                if ocr_text:
+
+                    print(
+                        f"Image OCR: "
+                        f"{ocr_text[:100]}"
+                    )
+
                 image_node = Node(
                     node_id=str(
                         uuid.uuid4()
@@ -187,7 +237,10 @@ class PDFParser:
                     self.pdf_path,
 
                     caption=
-                    caption
+                    caption,
+
+                    ocr_text=
+                    ocr_text
                 )
 
                 image_nodes.append(
@@ -251,6 +304,16 @@ class PDFParser:
                         text_node
                     )
 
+                table_nodes = (
+                    self._extract_tables(
+                        page_num
+                    )
+                )
+
+                nodes.extend(
+                    table_nodes
+                )
+                
                 if extract_images:
 
                     image_nodes = (
@@ -270,3 +333,40 @@ class PDFParser:
             doc.close()
 
         return nodes
+
+    def _extract_tables(
+        self,
+        page_num
+    ):
+
+        table_nodes = []
+
+        tables = (
+            self.table_extractor
+            .extract_tables(
+                self.pdf_path,
+                page_num
+            )
+        )
+
+        for table_text in tables:
+
+            table_nodes.append(
+                Node(
+                    node_id=str(
+                        uuid.uuid4()
+                    ),
+
+                    node_type="table",
+
+                    page=page_num,
+
+                    table_data=
+                    table_text,
+
+                    source_document=
+                    self.pdf_path
+                )
+            )
+
+        return table_nodes
