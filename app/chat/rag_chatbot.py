@@ -15,11 +15,18 @@ from app.query_rewriting.query_rewriter import (
 )
 
 
-# Cross-encoder relevance floor for images. The ms-marco cross-encoder
-# emits a logit per (query, caption/ocr) pair: positive => relevant.
-# Images scoring below this are dropped so irrelevant figures never
-# surface alongside the answer.
-IMAGE_SCORE_THRESHOLD = 0.0
+# Image selection.
+#
+# The ms-marco cross-encoder scores short image captions very low in
+# absolute terms (almost always negative), so an absolute score floor
+# wrongly discards relevant images. Instead we anchor on the page of
+# the single most relevant retrieved context: the figure that belongs
+# with the answer sits on the same page the answer is drawn from. Among
+# the images on that page we keep the best one(s), allowing extras only
+# if their score is within IMAGE_PAGE_MARGIN of the best image (so a
+# page with several genuinely relevant figures still shows them, while
+# an unrelated figure sharing the page is dropped).
+IMAGE_PAGE_MARGIN = 1.5
 
 # Max images returned with a single answer.
 MAX_IMAGES = 3
@@ -148,48 +155,69 @@ class RAGChatbot:
         contexts
     ):
 
+        if not contexts:
+
+            return []
+
+        # Anchor on the page of the most relevant retrieved context.
+        primary_page = contexts[0].get("page")
+
+        # Collect images that live on that page, best score first.
+        candidates = [
+            context
+            for context in contexts
+            if context.get("node_type") == "image"
+            and context.get("image_path")
+            and context.get("page") == primary_page
+        ]
+
+        candidates.sort(
+            key=lambda c: c.get(
+                "rerank_score",
+                float("-inf")
+            ),
+            reverse=True
+        )
+
+        if not candidates:
+
+            return []
+
+        best_score = (
+            candidates[0].get(
+                "rerank_score",
+                0.0
+            )
+        )
+
         images = []
 
         seen = set()
 
-        for context in contexts:
+        for context in candidates:
 
-            if (
-                context.get(
-                    "node_type"
-                )
-                !=
-                "image"
-            ):
-                continue
-
-            image_path = (
-                context.get(
-                    "image_path"
-                )
+            score = context.get(
+                "rerank_score",
+                0.0
             )
 
-            if not image_path:
-                continue
-
-            # Relevant image selection: skip images the reranker
-            # judged unrelated to the query.
+            # Keep figures close to the best image on this page; drop an
+            # unrelated figure that merely shares the page.
             if (
-                context.get(
-                    "rerank_score",
-                    0.0
-                )
-                <
-                IMAGE_SCORE_THRESHOLD
+                best_score - score
+                >
+                IMAGE_PAGE_MARGIN
             ):
                 continue
+
+            image_path = context.get(
+                "image_path"
+            )
 
             if image_path in seen:
                 continue
 
-            seen.add(
-                image_path
-            )
+            seen.add(image_path)
 
             images.append(
                 {
@@ -205,9 +233,7 @@ class RAGChatbot:
                     ),
 
                     "rerank_score":
-                    context.get(
-                        "rerank_score"
-                    )
+                    score
                 }
             )
 
