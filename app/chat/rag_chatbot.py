@@ -159,19 +159,15 @@ class RAGChatbot:
 
             return []
 
-        # Anchor on the page of the most relevant retrieved context.
-        primary_page = contexts[0].get("page")
-
-        # Collect images that live on that page, best score first.
-        candidates = [
+        # All retrieved images, best score first.
+        all_images = [
             context
             for context in contexts
             if context.get("node_type") == "image"
             and context.get("image_path")
-            and context.get("page") == primary_page
         ]
 
-        candidates.sort(
+        all_images.sort(
             key=lambda c: c.get(
                 "rerank_score",
                 float("-inf")
@@ -179,9 +175,44 @@ class RAGChatbot:
             reverse=True
         )
 
-        if not candidates:
+        if not all_images:
 
             return []
+
+        # Primary signal: figures on the page of the most relevant
+        # retrieved context (text and its figure usually share a page).
+        primary_page = contexts[0].get("page")
+
+        candidates = [
+            context
+            for context in all_images
+            if context.get("page") == primary_page
+        ]
+
+        # Fallback: if the answer's page has no figure, still surface the
+        # single best image when it ranks among the very top retrieved
+        # results, so image-led queries whose figure lives on another
+        # page are not silently dropped.
+        if not candidates:
+
+            best_image = all_images[0]
+
+            rank = next(
+                (
+                    index
+                    for index, context in enumerate(contexts)
+                    if context is best_image
+                ),
+                len(contexts)
+            )
+
+            if rank <= 2:
+
+                candidates = [best_image]
+
+            else:
+
+                return []
 
         best_score = (
             candidates[0].get(
