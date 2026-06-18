@@ -1,4 +1,5 @@
 import json
+import os
 import requests
 import uuid
 import streamlit as st
@@ -536,13 +537,23 @@ if question:
 
                 for image in images:
 
-                    image_src = (
-                        absolute_url(
+                    # Prefer the local file (same machine as the
+                    # Streamlit process); fall back to the server URL.
+                    local_path = image.get("image_path")
+
+                    if (
+                        local_path
+                        and
+                        os.path.exists(local_path)
+                    ):
+
+                        image_src = local_path
+
+                    else:
+
+                        image_src = absolute_url(
                             image.get("image_url")
                         )
-                        or
-                        image.get("image_path")
-                    )
 
                     if image_src:
 
@@ -570,59 +581,60 @@ if question:
 
             if sources:
 
+                # Show only the single most relevant source (sources
+                # are already ordered by rerank relevance) and link to
+                # that page, instead of listing every retrieved chunk.
+                source = sources[0]
+
                 with st.expander(
-                    "📖 Sources"
+                    "📖 Source"
                 ):
 
-                    for source in sources:
+                    title = (
+                        source.get("title")
+                        or
+                        "Document Source"
+                    )
 
-                        title = (
-                            source.get("title")
-                            or
-                            "Document Source"
+                    cleaned_content = (
+                        clean_source_text(
+                            source.get("content")
+                            or ""
                         )
+                    )
 
-                        cleaned_content = (
-                            clean_source_text(
-                                source.get("content")
-                                or ""
-                            )
-                        )
+                    snippet = (
+                        cleaned_content[:500]
+                    )
 
-                        snippet = (
-                            cleaned_content[:500]
+                    st.markdown(
+                        f"### {title}"
+                    )
+
+                    source_url = (
+                        absolute_url(
+                            source.get("source_url")
                         )
+                    )
+
+                    if source_url:
 
                         st.markdown(
-                            f"### {title}"
+                            f"📄 [Open page "
+                            f"{source['page']}]"
+                            f"({source_url})"
                         )
 
-                        source_url = (
-                            absolute_url(
-                                source.get("source_url")
-                            )
-                        )
-
-                        if source_url:
-
-                            st.markdown(
-                                f"📄 [Open page "
-                                f"{source['page']}]"
-                                f"({source_url})"
-                            )
-
-                        else:
-
-                            st.markdown(
-                                f"📄 Page "
-                                f"{source['page']}"
-                            )
+                    else:
 
                         st.markdown(
-                            f"{snippet}..."
+                            f"📄 Page "
+                            f"{source['page']}"
                         )
 
-                        st.divider()
+                    st.markdown(
+                        f"{snippet}..."
+                    )
 
             assistant_message = {
                 "role":
@@ -632,13 +644,11 @@ if question:
                 answer
             }
 
+            # NOTE: st.session_state.messages and
+            # document_chats[selected_collection] are the SAME list
+            # object (assigned by reference above), so a single append
+            # updates both. Appending to both duplicated every answer.
             st.session_state.messages.append(
-                assistant_message
-            )
-
-            st.session_state.document_chats[
-                selected_collection
-            ].append(
                 assistant_message
             )
 
