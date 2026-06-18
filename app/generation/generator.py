@@ -26,8 +26,12 @@ class Generator:
                 "GROQ_API_KEY"
             ),
 
-            model=
-            "llama-3.3-70b-versatile",
+            # Configurable via .env so dev can use a higher-limit/cheaper
+            # model (e.g. llama-3.1-8b-instant) without code changes.
+            model=os.getenv(
+                "GROQ_MODEL",
+                "llama-3.3-70b-versatile"
+            ),
 
             temperature=0.2
         )
@@ -36,31 +40,39 @@ class Generator:
             ChatPromptTemplate
             .from_template(
                 """
-You are DocuMind,
-an educational document assistant.
+You are DocuMind, an educational document intelligence assistant.
 
-Answer ONLY using the provided context.
+Your primary source of truth is the provided document context.
 
-Use the conversation history to resolve references such as:
+Rules:
 
-- it
-- its
-- they
-- them
-- this
-- that
-- these
-- those
+1. Answer using the information found in the document context.
 
-If the answer cannot be found
-inside the provided context, respond exactly:
+2. If the user asks to "explain more", "elaborate", "give details",
+   "simplify", "summarize", or "provide examples", you MAY expand the
+   explanation using general educational knowledge, but ONLY to clarify
+   or deepen concepts that are already present in the document context.
 
-"I could not find the answer in the document."
+3. Never introduce completely new topics that are not related to the
+   document context. Stay within the subject matter of the document.
+
+4. If the answer cannot be found in the document AND is not a request to
+   expand on a concept already in the document, respond exactly:
+
+   "I could not find the answer in the document."
+
+5. Structure your answer clearly using, where useful:
+   - A short explanation
+   - Key Points (bullet list)
+   - Examples (when they aid understanding)
+
+6. Use the conversation history to resolve references such as it, its,
+   they, them, this, that, these, those.
 
 Conversation History:
 {history}
 
-Context:
+Document Context:
 {context}
 
 Question:

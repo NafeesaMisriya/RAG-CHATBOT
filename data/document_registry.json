@@ -1,30 +1,18 @@
 [
     {
-        "name": "Biology_Genetics_5Pages.pdf",
-        "collection": "biology_genetics_5pages"
-    },
-    {
         "name": "Biology_txt.pdf",
         "collection": "biology_txt"
+    },
+    {
+        "name": "Chemistry.pdf",
+        "collection": "chemistry"
     },
     {
         "name": "English.pdf",
         "collection": "english"
     },
     {
-        "name": "ocr_vision_test_document.pdf",
-        "collection": "ocr_vision_test_document"
-    },
-    {
         "name": "real_image_test_pdf.pdf",
         "collection": "real_image_test_pdf"
-    },
-    {
-        "name": "ocr_local_image_test.pdf",
-        "collection": "ocr_local_image_test"
-    },
-    {
-        "name": "ocr_single_page_test.pdf",
-        "collection": "ocr_single_page_test"
     }
 ]

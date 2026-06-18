@@ -255,6 +255,7 @@ class PDFParser:
                 )
 
         return image_nodes
+
     def parse(
         self,
         extract_images=False

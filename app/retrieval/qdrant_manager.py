@@ -8,7 +8,12 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance,
     VectorParams,
-    PointStruct
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
+    MatchAny,
+    PayloadSchemaType
 )
 
 load_dotenv()
@@ -79,10 +84,42 @@ class QdrantManager:
             )
         )
 
+        self.ensure_payload_indexes(
+            collection_name
+        )
+
         print(
             f"Collection '{collection_name}' "
             f"created successfully."
         )
+
+    def ensure_payload_indexes(
+        self,
+        collection_name: str
+    ):
+
+        """Create the payload indexes needed to filter figures by page and
+        node type. Idempotent: indexes that already exist are ignored."""
+
+        indexes = [
+            ("metadata.node_type", PayloadSchemaType.KEYWORD),
+            ("page", PayloadSchemaType.INTEGER),
+        ]
+
+        for field_name, schema in indexes:
+
+            try:
+
+                self.client.create_payload_index(
+                    collection_name=collection_name,
+                    field_name=field_name,
+                    field_schema=schema
+                )
+
+            except Exception:
+
+                # Index already exists (or is being built) — safe to skip.
+                pass
 
     def recreate_collection(
         self,
@@ -214,6 +251,99 @@ class QdrantManager:
         )
 
         return results
+
+    def get_image_nodes_by_pages(
+        self,
+        collection_name: str,
+        pages: list,
+        limit: int = 256
+    ):
+
+        """Fetch image nodes that live on the given pages.
+
+        Image captions are too thin to surface reliably through vector
+        search, so figures are discovered by page instead: once we know
+        which pages the answer is grounded in, we pull every image node on
+        those pages and let the reranker pick the ones related to the query.
+        Returns a list of context dicts shaped like Retriever.retrieve()."""
+
+        if not pages:
+
+            return []
+
+        page_values = [
+            p for p in pages
+            if p is not None
+        ]
+
+        if not page_values:
+
+            return []
+
+        scroll_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="metadata.node_type",
+                    match=MatchValue(value="image")
+                ),
+                FieldCondition(
+                    key="page",
+                    match=MatchAny(any=page_values)
+                )
+            ]
+        )
+
+        points, _ = self.client.scroll(
+            collection_name=collection_name,
+            scroll_filter=scroll_filter,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False
+        )
+
+        contexts = []
+
+        for point in points:
+
+            payload = point.payload or {}
+
+            metadata = payload.get(
+                "metadata",
+                {}
+            ) or {}
+
+            contexts.append(
+                {
+                    "content":
+                    payload.get("content", ""),
+
+                    "page":
+                    payload.get("page"),
+
+                    "source_document":
+                    payload.get("source_document"),
+
+                    "score":
+                    0.0,
+
+                    "metadata":
+                    metadata,
+
+                    "title":
+                    metadata.get("title"),
+
+                    "unit":
+                    metadata.get("unit"),
+
+                    "node_type":
+                    "image",
+
+                    "image_path":
+                    metadata.get("image_path")
+                }
+            )
+
+        return contexts
 
     def get_collection_info(
         self,

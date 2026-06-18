@@ -17,19 +17,72 @@ from app.query_rewriting.query_rewriter import (
 
 # Image selection.
 #
-# The ms-marco cross-encoder scores short image captions very low in
-# absolute terms (almost always negative), so an absolute score floor
-# wrongly discards relevant images. Instead we anchor on the page of
-# the single most relevant retrieved context: the figure that belongs
-# with the answer sits on the same page the answer is drawn from. Among
-# the images on that page we keep the best one(s), allowing extras only
-# if their score is within IMAGE_PAGE_MARGIN of the best image (so a
-# page with several genuinely relevant figures still shows them, while
-# an unrelated figure sharing the page is dropped).
-IMAGE_PAGE_MARGIN = 1.5
+# Image captions are too thin to surface reliably through vector search
+# (e.g. "the human brain and spinal"), so figures are NOT discovered by
+# caption similarity. Instead they are discovered by PAGE: we take the
+# pages the answer is actually grounded in (the top-ranked text hits with
+# a positive rerank score), pull every image node on those pages directly
+# from Qdrant, then rerank those figures against the query so the one
+# related to the question wins (the labelled brain diagram for a brain
+# question) and unrelated figures are dropped. If no page is grounded
+# (an out-of-context query), no images are shown.
 
-# Max images returned with a single answer.
+# Relevance gate.
+#
+# The cross-encoder's absolute rerank score is NOT comparable across
+# documents: clean text scores around 0 when relevant, while scanned/OCR
+# text scores deeply negative even when relevant. So an absolute floor
+# wrongly rejects every result in a scanned PDF. Instead we use a RELATIVE
+# signal: a query is "grounded" when its best hit stands out from the
+# spread of retrieved results. Off-topic queries produce a flat, uniformly
+# low distribution (small gap); relevant queries produce a clear peak
+# (large gap) regardless of the absolute baseline.
+GROUNDING_GAP = 1.5
+
+# How many distinct grounded pages to pull figures from (hard cap).
+MAX_ANCHOR_PAGES = 3
+
+# A page only counts as an anchor if its text rerank score is within this
+# margin of the BEST page's score. This keeps figures tied to the page the
+# answer is really about: when one page dominates (e.g. the brain page at
+# 3.9 vs the next at 0.2) only that page anchors, so unrelated figures on
+# weakly-ranked pages are not pulled in. When several pages are comparably
+# relevant (e.g. a bare "show all the images" request, where every page
+# scores about the same) they all anchor.
+ANCHOR_SCORE_MARGIN = 2.0
+
+# Keep figures whose rerank score is within this margin of the best
+# figure, so only figures related to the query survive.
+IMAGE_RELEVANCE_MARGIN = 2.0
+
+# Max images returned: default vs an explicit "show all images" request.
 MAX_IMAGES = 3
+MAX_IMAGES_EXPLICIT = 8
+
+# Max source citations to display. Only the sources that actually answer
+# the query are shown (relevance-gated below), not every retrieved chunk.
+MAX_SOURCES = 2
+
+# Words that signal the user explicitly wants figures.
+_IMAGE_WORDS = (
+    "image", "images", "picture", "pictures", "figure", "figures",
+    "diagram", "diagrams", "illustration", "illustrations",
+    "photo", "photos", "visual", "visuals", "drawing", "drawings"
+)
+
+# Words that, alongside an image word, signal "give me all of them".
+_ALL_WORDS = ("all", "every", "each", "both", "list", "show")
+
+
+# The generator emits this exact sentence when the question is not
+# answerable from the document. When the answer is this refusal we must
+# not show figures or sources — they would contradict "not found".
+_REFUSAL_MARKER = "could not find the answer"
+
+
+def _is_refusal(answer):
+
+    return _REFUSAL_MARKER in (answer or "").lower()
 
 
 def _to_file_url(path):
@@ -150,24 +203,232 @@ class RAGChatbot:
             source_url
         }
 
-    def _filter_images(
+    def _mentions_images(
+        self,
+        question
+    ):
+
+        """True when the query explicitly references figures at all."""
+
+        q = (question or "").lower()
+
+        return any(
+            word in q
+            for word in _IMAGE_WORDS
+        )
+
+    def _wants_all_images(
+        self,
+        question
+    ):
+
+        """True when the user explicitly asks for (all) figures, e.g.
+        'show all the diagrams' or 'list the images'."""
+
+        if not self._mentions_images(question):
+
+            return False
+
+        q = (question or "").lower()
+
+        return any(
+            word in q
+            for word in _ALL_WORDS
+        )
+
+    def _is_grounded(
+        self,
+        text_contexts
+    ):
+
+        """Relative relevance gate: True when the best text hit stands out
+        from the spread of retrieved results. Robust across clean and
+        scanned PDFs because it compares scores WITHIN this query's results
+        rather than to a fixed absolute threshold."""
+
+        if not text_contexts:
+
+            return False
+
+        scores = [
+            context.get("rerank_score", 0.0)
+            for context in text_contexts
+        ]
+
+        return (max(scores) - min(scores)) >= GROUNDING_GAP
+
+    def _select_sources(
         self,
         contexts
     ):
+
+        """Show only the citations that actually answer the query.
+
+        Nothing is cited for an out-of-context query (relative grounding
+        gate). Otherwise sources are deduplicated by page and kept only
+        while within ANCHOR_SCORE_MARGIN of the best source, so a query
+        answered by one page cites just that page (not the next two
+        loosely-retrieved chunks)."""
+
+        deduped = self._deduplicate_sources(
+            contexts
+        )
+
+        if not deduped:
+
+            return []
+
+        if not self._is_grounded(deduped):
+
+            return []
+
+        top_score = deduped[0].get(
+            "rerank_score",
+            0.0
+        )
+
+        selected = []
+
+        for context in deduped:
+
+            score = context.get("rerank_score", 0.0)
+
+            if top_score - score > ANCHOR_SCORE_MARGIN:
+                break
+
+            selected.append(
+                self._build_source(context)
+            )
+
+            if len(selected) >= MAX_SOURCES:
+                break
+
+        return selected
+
+    def _anchor_pages(
+        self,
+        contexts,
+        relax=False,
+        broad=False
+    ):
+
+        """Pages the answer is grounded in: the distinct pages of the
+        top-ranked TEXT hits.
+
+        For normal questions a relevance gate applies (the relative
+        grounding signal), so an out-of-context query surfaces no figures.
+        When the user explicitly asks for figures (relax=True) the gate is
+        dropped and we anchor to the top pages, because an instruction like
+        'show the diagrams' scores low as plain text yet still targets the
+        most relevant pages."""
 
         if not contexts:
 
             return []
 
-        # All retrieved images, best score first.
-        all_images = [
+        text_contexts = [
             context
             for context in contexts
-            if context.get("node_type") == "image"
-            and context.get("image_path")
+            if context.get("node_type") != "image"
         ]
 
-        all_images.sort(
+        if not text_contexts:
+
+            return []
+
+        # Out-of-context guard for normal questions. Skipped when the user
+        # explicitly asks for figures (relax=True).
+        if not relax and not self._is_grounded(text_contexts):
+
+            return []
+
+        top_score = text_contexts[0].get(
+            "rerank_score",
+            0.0
+        )
+
+        pages = []
+
+        # text_contexts are sorted by rerank score (best first), so once a
+        # page falls outside the margin every later page does too. In broad
+        # mode (an explicit "show all images" request) the margin is
+        # ignored and we simply take the top pages up to the cap.
+        for context in text_contexts:
+
+            score = context.get("rerank_score", 0.0)
+
+            if not broad and top_score - score > ANCHOR_SCORE_MARGIN:
+                break
+
+            page = context.get("page")
+
+            if page is None or page in pages:
+                continue
+
+            pages.append(page)
+
+            if len(pages) >= MAX_ANCHOR_PAGES:
+                break
+
+        return pages
+
+    def _select_images(
+        self,
+        question,
+        contexts,
+        collection_name
+    ):
+
+        """Pick the figures related to the query.
+
+        Figures are discovered by page (the grounded pages), pulled from
+        Qdrant, then reranked against the query so the related figure wins
+        and unrelated ones are dropped."""
+
+        wants_all = self._wants_all_images(question)
+
+        # The relevance gate is bypassed ONLY for an explicit "show all the
+        # images" browse request (which has no topic to ground on). A
+        # topical image request like "image of brain" still must ground —
+        # otherwise an off-topic query surfaces a random figure.
+        pages = self._anchor_pages(
+            contexts,
+            relax=wants_all,
+            broad=wants_all
+        )
+
+        if not pages:
+
+            return []
+
+        image_contexts = (
+            self.retriever.qdrant.get_image_nodes_by_pages(
+                collection_name=collection_name,
+                pages=pages
+            )
+        )
+
+        image_contexts = [
+            context
+            for context in image_contexts
+            if context.get("image_path")
+        ]
+
+        if not image_contexts:
+
+            return []
+
+        # Rank the candidate figures by relevance to the query (caption
+        # vs query) so the labelled brain diagram beats an unrelated
+        # figure that merely shares the page.
+        image_contexts = (
+            self.reranker.rerank(
+                query=question,
+                contexts=image_contexts
+            )
+        )
+
+        image_contexts.sort(
             key=lambda c: c.get(
                 "rerank_score",
                 float("-inf")
@@ -175,77 +436,41 @@ class RAGChatbot:
             reverse=True
         )
 
-        if not all_images:
+        cap = (
+            MAX_IMAGES_EXPLICIT
+            if wants_all
+            else MAX_IMAGES
+        )
 
-            return []
-
-        # Primary signal: figures on the page of the most relevant
-        # retrieved context (text and its figure usually share a page).
-        primary_page = contexts[0].get("page")
-
-        candidates = [
-            context
-            for context in all_images
-            if context.get("page") == primary_page
-        ]
-
-        # Fallback: if the answer's page has no figure, still surface the
-        # single best image when it ranks among the very top retrieved
-        # results, so image-led queries whose figure lives on another
-        # page are not silently dropped.
-        if not candidates:
-
-            best_image = all_images[0]
-
-            rank = next(
-                (
-                    index
-                    for index, context in enumerate(contexts)
-                    if context is best_image
-                ),
-                len(contexts)
-            )
-
-            if rank <= 2:
-
-                candidates = [best_image]
-
-            else:
-
-                return []
-
-        best_score = (
-            candidates[0].get(
-                "rerank_score",
-                0.0
-            )
+        best_score = image_contexts[0].get(
+            "rerank_score",
+            0.0
         )
 
         images = []
 
         seen = set()
 
-        for context in candidates:
+        for context in image_contexts:
 
             score = context.get(
                 "rerank_score",
                 0.0
             )
 
-            # Keep figures close to the best image on this page; drop an
-            # unrelated figure that merely shares the page.
+            # For a normal query, keep only figures close to the best one
+            # (the related figure). An explicit "show all" request relaxes
+            # this and returns every figure on the grounded pages.
             if (
-                best_score - score
-                >
-                IMAGE_PAGE_MARGIN
+                not wants_all
+                and
+                best_score - score > IMAGE_RELEVANCE_MARGIN
             ):
                 continue
 
-            image_path = context.get(
-                "image_path"
-            )
+            image_path = context.get("image_path")
 
-            if image_path in seen:
+            if not image_path or image_path in seen:
                 continue
 
             seen.add(image_path)
@@ -268,7 +493,10 @@ class RAGChatbot:
                 }
             )
 
-        return images[:MAX_IMAGES]
+            if len(images) >= cap:
+                break
+
+        return images
 
     def _get_contexts(
         self,
@@ -354,17 +582,17 @@ class RAGChatbot:
             retrieved_contexts[:8]
         )
 
-        source_contexts = [
-            self._build_source(context)
-            for context in
-            self._deduplicate_sources(
+        source_contexts = (
+            self._select_sources(
                 retrieved_contexts
-            )[:3]
-        ]
+            )
+        )
 
         image_sources = (
-            self._filter_images(
-                retrieved_contexts
+            self._select_images(
+                question=question,
+                contexts=retrieved_contexts,
+                collection_name=collection_name
             )
         )
 
@@ -408,6 +636,14 @@ class RAGChatbot:
             )
         )
 
+        # If the model couldn't answer from the document, don't attach
+        # figures or sources — they would contradict the refusal.
+        if _is_refusal(answer):
+
+            source_contexts = []
+
+            image_sources = []
+
         return {
 
             "answer":
@@ -450,6 +686,8 @@ class RAGChatbot:
             history=history
         )
 
+        full_answer = ""
+
         for chunk in (
             self.generator.stream_generate(
                 query=
@@ -463,10 +701,20 @@ class RAGChatbot:
             )
         ):
 
+            full_answer += chunk
+
             yield {
                 "type": "token",
                 "data": chunk
             }
+
+        # If the model couldn't answer from the document, suppress figures
+        # and sources so they don't contradict the refusal.
+        if _is_refusal(full_answer):
+
+            source_contexts = []
+
+            image_sources = []
 
         yield {
             "type": "sources",

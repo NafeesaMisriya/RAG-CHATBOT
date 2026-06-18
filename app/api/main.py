@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes.chat import (
@@ -28,6 +29,22 @@ from app.api.routes.health import (
 app = FastAPI(
     title="DocuMind API",
     version="1.0"
+)
+
+# Allow the React frontend (Vite dev server / production build) to call
+# the API from a different origin. Override the allowed origins with the
+# FRONTEND_ORIGINS env var (comma-separated) in production.
+_frontend_origins = os.getenv(
+    "FRONTEND_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173"
+).split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in _frontend_origins if o.strip()],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Serve uploaded PDFs and extracted images so the UI can render

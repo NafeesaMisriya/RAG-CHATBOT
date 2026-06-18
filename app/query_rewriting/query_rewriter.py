@@ -16,7 +16,10 @@ class QueryRewriter:
             )
         )
 
-        self.model_name = (
+        # Configurable via .env; defaults to a small, high-limit model
+        # since rewriting is a lightweight task.
+        self.model_name = os.getenv(
+            "GROQ_REWRITE_MODEL",
             "llama-3.1-8b-instant"
         )
 

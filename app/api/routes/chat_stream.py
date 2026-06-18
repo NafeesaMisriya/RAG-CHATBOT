@@ -22,6 +22,26 @@ chatbot = (
 )
 
 
+def _friendly_error(exc):
+
+    """Map an exception raised mid-generation to a user-facing message."""
+
+    name = type(exc).__name__
+
+    if "RateLimit" in name or "429" in str(exc):
+
+        return (
+            "The language model's usage limit has been reached. "
+            "Please wait a few minutes and try again, or upgrade the "
+            "model provider plan."
+        )
+
+    return (
+        "Sorry — something went wrong while generating the answer. "
+        "Please try again."
+    )
+
+
 @router.post(
     "/chat/stream"
 )
@@ -47,28 +67,55 @@ def stream_chat(
 
         full_answer = ""
 
-        for event in (
-            chatbot.stream_answer(
-                question=
-                request.question,
+        try:
 
-                collection_name=
-                request.collection_name,
+            for event in (
+                chatbot.stream_answer(
+                    question=
+                    request.question,
 
-                history=
-                history
-            )
-        ):
+                    collection_name=
+                    request.collection_name,
 
-            if event["type"] == "token":
+                    history=
+                    history
+                )
+            ):
 
-                full_answer += event["data"]
+                if event["type"] == "token":
+
+                    full_answer += event["data"]
+
+                yield (
+                    "data: "
+                    + json.dumps(event)
+                    + "\n\n"
+                )
+
+        except Exception as exc:  # noqa: BLE001
+
+            # The LLM (or retrieval) failed mid-stream. Rather than crash
+            # the SSE response with a 500 and leave the UI hanging, emit a
+            # clean error event the client can render, then close the
+            # stream gracefully. Rate limits are the common case, so give
+            # the user an actionable message.
+            message = _friendly_error(exc)
 
             yield (
                 "data: "
-                + json.dumps(event)
+                + json.dumps(
+                    {"type": "error", "data": message}
+                )
                 + "\n\n"
             )
+
+            yield (
+                "data: "
+                + json.dumps({"type": "done"})
+                + "\n\n"
+            )
+
+            return
 
         # Persist the assistant turn exactly once, after the full
         # answer has streamed. (Previously the client made a second
