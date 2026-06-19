@@ -55,6 +55,14 @@ ANCHOR_SCORE_MARGIN = 2.0
 # figure, so only figures related to the query survive.
 IMAGE_RELEVANCE_MARGIN = 2.0
 
+# For a normal query, a figure is only shown if it is clearly the most
+# relevant on the page: the top figure must beat the second by at least
+# this margin. When several figures on a page score almost the same
+# (flat), the weak captions give no signal about which is relevant, so we
+# show nothing rather than guess (e.g. a person query landing on a page of
+# unrelated diagrams). A page with a single figure is exempt.
+IMAGE_STANDOUT_MARGIN = 1.5
+
 # Max images returned: default vs an explicit "show all images" request.
 MAX_IMAGES = 3
 MAX_IMAGES_EXPLICIT = 8
@@ -83,6 +91,28 @@ _REFUSAL_MARKER = "could not find the answer"
 def _is_refusal(answer):
 
     return _REFUSAL_MARKER in (answer or "").lower()
+
+
+# Captions BLIP assigns to decorative page chrome (sticky-note graphics,
+# blank framed boxes) that are not real content figures. Such images are
+# never useful answers, so they are dropped before figure selection.
+_DECORATIVE_MARKERS = (
+    "sticky note",
+    "note paper",
+    "blank paper",
+    "blank page",
+    "blank sheet",
+)
+
+
+def _is_decorative(content):
+
+    text = (content or "").lower()
+
+    return any(
+        marker in text
+        for marker in _DECORATIVE_MARKERS
+    )
 
 
 def _to_file_url(path):
@@ -412,6 +442,7 @@ class RAGChatbot:
             context
             for context in image_contexts
             if context.get("image_path")
+            and not _is_decorative(context.get("content"))
         ]
 
         if not image_contexts:
@@ -447,6 +478,25 @@ class RAGChatbot:
             0.0
         )
 
+        # Normal query precision gate: show a figure only when it is clearly
+        # the most relevant. With several near-tied figures the captions
+        # give no signal, so show nothing instead of a random one. A single
+        # figure on the grounded page is taken as-is.
+        if not wants_all:
+
+            if len(image_contexts) > 1:
+
+                second_score = image_contexts[1].get(
+                    "rerank_score",
+                    0.0
+                )
+
+                if best_score - second_score < IMAGE_STANDOUT_MARGIN:
+
+                    return []
+
+            image_contexts = image_contexts[:1]
+
         images = []
 
         seen = set()
@@ -458,15 +508,10 @@ class RAGChatbot:
                 0.0
             )
 
-            # For a normal query, keep only figures close to the best one
-            # (the related figure). An explicit "show all" request relaxes
-            # this and returns every figure on the grounded pages.
-            if (
-                not wants_all
-                and
-                best_score - score > IMAGE_RELEVANCE_MARGIN
-            ):
-                continue
+            # Normal queries are already trimmed to the standout figure
+            # above; an explicit "show all" request returns every figure on
+            # the grounded pages (up to the cap). So no further filtering
+            # here — just dedupe and cap.
 
             image_path = context.get("image_path")
 
