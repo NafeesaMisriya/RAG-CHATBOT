@@ -10,9 +10,15 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
   return (
     <div className={`msg ${message.role}`}>
-      <div className="avatar">{isUser ? "You" : "AI"}</div>
+      <div className="avatar">
+        {isUser ? (
+          "You"
+        ) : (
+          <img src="/contexora-mark.png" alt="ConteXora" />
+        )}
+      </div>
       <div className="body">
-        <div className="role">{isUser ? "You" : "DocuMind"}</div>
+        <div className="role">{isUser ? "You" : "ConteXora"}</div>
 
         {showTyping ? (
           <div className="typing">

@@ -1,4 +1,4 @@
-import { BookIcon, SparkIcon, UploadIcon } from "./icons";
+import { BookIcon, SparkIcon } from "./icons";
 
 const SUGGESTIONS = [
   "Summarize this document",
@@ -10,13 +10,10 @@ const SUGGESTIONS = [
 export function NoDocument() {
   return (
     <div className="empty">
-      <div className="empty-icon">
-        <UploadIcon size={32} />
-      </div>
-      <h2>Welcome to DocuMind</h2>
+      <img className="empty-logo" src="/contexora-logo.png" alt="ConteXora" />
       <p>
-        Upload a PDF from the sidebar to build a searchable knowledge base, then
-        ask questions and get grounded, cited answers.
+        Upload a document from the sidebar to build a searchable knowledge base,
+        then ask questions and get grounded, cited answers.
       </p>
     </div>
   );
@@ -36,7 +33,7 @@ export function NewConversation({
       </div>
       <h2>Chat with {documentName}</h2>
       <p>
-        Ask a question and DocuMind will retrieve the most relevant passages,
+        Ask a question and ConteXora will retrieve the most relevant passages,
         figures, and pages to answer — with sources you can verify.
       </p>
       <div className="suggestions">

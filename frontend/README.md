@@ -1,8 +1,8 @@
-# DocuMind — React Frontend
+# ConteXora — React Frontend
 
-A professional, product-grade UI for the DocuMind RAG document-intelligence
-chatbot. Replaces the Streamlit prototype with a Vite + React + TypeScript
-single-page app.
+A professional, product-grade UI for **ConteXora** ("Transforming Context into
+Intelligence") — a RAG document-intelligence chatbot. Replaces the Streamlit
+prototype with a Vite + React + TypeScript single-page app.
 
 ## Features
 

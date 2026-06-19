@@ -1,9 +1,9 @@
 {
-  "name": "documind-frontend",
+  "name": "contexora-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Professional React UI for the DocuMind RAG document intelligence chatbot",
+  "description": "Professional React UI for ConteXora — RAG document intelligence chatbot",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

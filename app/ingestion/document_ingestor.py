@@ -1,3 +1,4 @@
+import gc
 import os
 
 from app.parsing.pdf_parser import (
@@ -55,6 +56,11 @@ class DocumentIngestor:
         nodes = parser.parse(
             extract_images=True
         )
+
+        # Free BLIP model from memory before embedding — prevents OOM crash
+        # when a large PDF has many image nodes (~500 MB freed here).
+        del parser
+        gc.collect()
 
         print(
             f"Nodes: {len(nodes)}"

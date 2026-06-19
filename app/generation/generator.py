@@ -2,8 +2,8 @@ import os
 
 from dotenv import load_dotenv
 
-from langchain_groq import (
-    ChatGroq
+from app.llm.llm_factory import (
+    LLMFactory
 )
 
 from langchain_core.prompts import (
@@ -21,26 +21,16 @@ class Generator:
 
     def __init__(self):
 
-        self.llm = ChatGroq(
-            api_key=os.getenv(
-                "GROQ_API_KEY"
-            ),
-
-            # Configurable via .env so dev can use a higher-limit/cheaper
-            # model (e.g. llama-3.1-8b-instant) without code changes.
-            model=os.getenv(
-                "GROQ_MODEL",
-                "llama-3.3-70b-versatile"
-            ),
-
-            temperature=0.2
+        self.llm = (
+            LLMFactory
+            .get_generation_llm()
         )
 
         self.prompt = (
             ChatPromptTemplate
             .from_template(
                 """
-You are DocuMind, an educational document intelligence assistant.
+You are ConteXora, an educational document intelligence assistant.
 Your primary source of truth is the provided document context.
 
 RULES
@@ -132,46 +122,91 @@ Answer:
 
         return history_text
 
-    def generate(
-        self,
-        query,
-        contexts,
-        history=None
-    ):
+        def generate(
+            self,
+            query,
+            contexts,
+            history=None
+        ):
 
-        if history is None:
+            if history is None:
 
-            history = []
+                history = []
 
-        context_text = (
-            self._build_context_text(
-                contexts
+            context_text = (
+                self._build_context_text(
+                    contexts
+                )
             )
-        )
 
-        history_text = (
-            self._build_history_text(
-                history
+            history_text = (
+                self._build_history_text(
+                    history
+                )
             )
-        )
 
-        response = (
-            self.chain.invoke(
-                {
-                    "history":
-                    history_text,
+            payload = {
 
-                    "context":
-                    context_text,
+                "history":
+                history_text,
 
-                    "question":
-                    query
-                }
-            )
-        )
+                "context":
+                context_text,
 
-        return response
+                "question":
+                query
+            }
 
+            try:
+
+                return (
+                    self.chain.invoke(
+                        payload
+                    )
+                )
+
+            except Exception as e:
+
+                print(
+                    f"\nPrimary LLM Failed: {e}"
+                )
+
+                try:
+
+                    print(
+                        "\nTrying Fallback LLM..."
+                    )
+
+                    fallback_llm = (
+                        LLMFactory
+                        .get_alternate_llm()
+                    )
+
+                    fallback_chain = (
+                        self.prompt
+                        |
+                        fallback_llm
+                        |
+                        self.parser
+                    )
+
+                    return (
+                        fallback_chain.invoke(
+                            payload
+                        )
+                    )
+
+                except Exception as e2:
+
+                    print(
+                        f"\nFallback Failed: {e2}"
+                    )
+
+                    return (
+                        "⚠️ All language "
+                        "model providers are "
+                        "currently unavailable."
+                    )
     def stream_generate(
         self,
         query,
@@ -195,19 +230,69 @@ Answer:
             )
         )
 
-        for chunk in (
-            self.chain.stream(
-                {
-                    "history":
-                    history_text,
+        payload = {
 
-                    "context":
-                    context_text,
+            "history":
+            history_text,
 
-                    "question":
-                    query
-                }
+            "context":
+            context_text,
+
+            "question":
+            query
+        }
+
+        try:
+
+            for chunk in (
+                self.chain.stream(
+                    payload
+                )
+            ):
+
+                yield chunk
+
+        except Exception as e:
+
+            print(
+                f"\nPrimary Stream Failed: {e}"
             )
-        ):
 
-            yield chunk
+            try:
+
+                print(
+                    "\nTrying Fallback Stream..."
+                )
+
+                fallback_llm = (
+                    LLMFactory
+                    .get_alternate_llm()
+                )
+
+                fallback_chain = (
+                    self.prompt
+                    |
+                    fallback_llm
+                    |
+                    self.parser
+                )
+
+                for chunk in (
+                    fallback_chain.stream(
+                        payload
+                    )
+                ):
+
+                    yield chunk
+
+            except Exception as e2:
+
+                print(
+                    f"\nFallback Stream Failed: {e2}"
+                )
+
+                yield (
+                    "⚠️ All language "
+                    "model providers are "
+                    "currently unavailable."
+                )

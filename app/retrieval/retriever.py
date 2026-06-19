@@ -119,7 +119,7 @@ class Retriever:
                 query_vector=
                 query_vector,
 
-                limit=50
+                limit=100
             )
         )
 

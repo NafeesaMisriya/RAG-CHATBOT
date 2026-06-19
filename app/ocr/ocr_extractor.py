@@ -68,13 +68,12 @@ class OCRExtractor:
                 )
             )
 
-            combined_text = (
-                text +
-                "\n" +
-                ocr_text
-            )
-
-            return combined_text
+            # Return Tesseract output ONLY.
+            # Combining with the garbage embedded layer (`text + ocr_text`)
+            # was polluting every chunk: the garbage dilutes semantic
+            # embeddings, breaks TITLE/UNIT detection (first 15 lines are
+            # garbage, not real headings), and causes wrong keyword boosts.
+            return ocr_text
 
         except Exception as e:
 

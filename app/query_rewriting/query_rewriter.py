@@ -1,6 +1,5 @@
 import os
 
-from groq import Groq
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -10,17 +9,19 @@ class QueryRewriter:
 
     def __init__(self):
 
-        self.client = Groq(
-            api_key=os.getenv(
-                "GROQ_API_KEY"
-            )
-        )
+        self.provider = os.getenv(
+            "LLM_PROVIDER",
+            "groq"
+        ).lower()
 
-        # Configurable via .env; defaults to a small, high-limit model
-        # since rewriting is a lightweight task.
-        self.model_name = os.getenv(
+        self.groq_model = os.getenv(
             "GROQ_REWRITE_MODEL",
             "llama-3.1-8b-instant"
+        )
+
+        self.gemini_model = os.getenv(
+            "GEMINI_REWRITE_MODEL",
+            "gemini-2.5-flash-lite"
         )
 
         self.reference_words = [
@@ -135,6 +136,8 @@ Rules:
    - those
    - he
    - she
+   - his
+   - her
 
 2. Resolve vague follow-up requests:
    - explain more
@@ -184,29 +187,186 @@ Current Question:
 
         try:
 
-            response = (
-                self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ],
-                    temperature=0
+            # ------------------------
+            # GEMINI FIRST
+            # ------------------------
+
+            if self.provider == "gemini":
+
+                try:
+
+                    import google.generativeai as genai
+
+                    genai.configure(
+                        api_key=os.getenv(
+                            "GEMINI_API_KEY"
+                        )
+                    )
+
+                    model = (
+                        genai.GenerativeModel(
+                            self.gemini_model
+                        )
+                    )
+
+                    response = (
+                        model.generate_content(
+                            prompt
+                        )
+                    )
+
+                    rewritten = (
+                        response.text
+                        .strip()
+                    )
+
+                    print(
+                        "\nRewritten Query (Gemini):",
+                        rewritten
+                    )
+
+                    return rewritten
+
+                except Exception as e:
+
+                    print(
+                        f"\nGemini Rewrite Failed: {e}"
+                    )
+
+                    print(
+                        "\nTrying Groq..."
+                    )
+
+                    from groq import Groq
+
+                    client = Groq(
+                        api_key=os.getenv(
+                            "GROQ_API_KEY"
+                        )
+                    )
+
+                    response = (
+                        client.chat.completions.create(
+                            model=
+                            self.groq_model,
+
+                            messages=[
+                                {
+                                    "role": "user",
+                                    "content": prompt
+                                }
+                            ],
+
+                            temperature=0
+                        )
+                    )
+
+                    rewritten = (
+                        response
+                        .choices[0]
+                        .message
+                        .content
+                        .strip()
+                    )
+
+                    print(
+                        "\nRewritten Query (Groq Fallback):",
+                        rewritten
+                    )
+
+                    return rewritten
+
+            # ------------------------
+            # GROQ FIRST
+            # ------------------------
+
+            try:
+
+                from groq import Groq
+
+                client = Groq(
+                    api_key=os.getenv(
+                        "GROQ_API_KEY"
+                    )
                 )
+
+                response = (
+                    client.chat.completions.create(
+                        model=
+                        self.groq_model,
+
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": prompt
+                            }
+                        ],
+
+                        temperature=0
+                    )
+                )
+
+                rewritten = (
+                    response
+                    .choices[0]
+                    .message
+                    .content
+                    .strip()
+                )
+
+                print(
+                    "\nRewritten Query (Groq):",
+                    rewritten
+                )
+
+                return rewritten
+
+            except Exception as e:
+
+                print(
+                    f"\nGroq Rewrite Failed: {e}"
+                )
+
+                print(
+                    "\nTrying Gemini..."
+                )
+
+                import google.generativeai as genai
+
+                genai.configure(
+                    api_key=os.getenv(
+                        "GEMINI_API_KEY"
+                    )
+                )
+
+                model = (
+                    genai.GenerativeModel(
+                        self.gemini_model
+                    )
+                )
+
+                response = (
+                    model.generate_content(
+                        prompt
+                    )
+                )
+
+                rewritten = (
+                    response.text
+                    .strip()
+                )
+
+                print(
+                    "\nRewritten Query (Gemini Fallback):",
+                    rewritten
+                )
+
+                return rewritten
+
+        except Exception as e:
+
+            print(
+                f"\nAll Rewrite Providers Failed: {e}"
             )
-
-            rewritten = (
-                response
-                .choices[0]
-                .message
-                .content
-                .strip()
-            )
-
-            return rewritten
-
-        except Exception:
 
             return query

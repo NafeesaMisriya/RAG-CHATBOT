@@ -26,6 +26,9 @@ langchain
 langchain-core
 langchain-groq
 
+#gemini
+google-generativeai
+langchain-google-genai
 # Utilities
 requests
 

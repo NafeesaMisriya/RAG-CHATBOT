@@ -60,7 +60,7 @@ export function Composer({ disabled, isStreaming, onSend, onStop }: Props) {
         )}
       </div>
       <div className="composer-hint">
-        DocuMind answers from your document. Press Enter to send, Shift+Enter for a new line.
+        ConteXora answers from your document. Press Enter to send, Shift+Enter for a new line.
       </div>
     </div>
   );

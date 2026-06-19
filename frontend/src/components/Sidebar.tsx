@@ -1,7 +1,7 @@
 import type { DocumentInfo } from "../types";
 import { DocumentList } from "./DocumentList";
 import { UploadPanel } from "./UploadPanel";
-import { BookIcon, SunIcon, MoonIcon, PlusIcon } from "./icons";
+import { SunIcon, MoonIcon, PlusIcon } from "./icons";
 
 interface Props {
   open: boolean;
@@ -33,12 +33,12 @@ export function Sidebar({
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
       <div className="sidebar-header">
-        <div className="logo">
-          <BookIcon size={20} />
-        </div>
-        <div>
-          <div className="brand-name">DocuMind</div>
-          <div className="brand-tag">Document Intelligence</div>
+        <img className="brand-logo" src="/contexora-mark.png" alt="ConteXora logo" />
+        <div className="brand-text">
+          <div className="brand-name">
+            <span className="hi">ConteX</span>ora
+          </div>
+          <div className="brand-tag">Transforming Context into Intelligence</div>
         </div>
       </div>
 
