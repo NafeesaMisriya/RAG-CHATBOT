@@ -1,7 +1,60 @@
 import fitz
+import re
 import uuid
 
+from collections import Counter
 from pathlib import Path
+
+# Matches explicit figure caption lines: "Figure 3.2", "Fig. 1", "Diagram 2.1",
+# "Chart 4", "Photo 1", "Illustration 2", "Plate 3", "Image 1".
+# Requires word + digit so "figuring" or standalone "figure" don't match.
+_CAPTION_RE = re.compile(
+    r'^\s*(figure|fig\.?|plate|diagram|chart|photo|illustration|exhibit|image)\s+[\d\.]',
+    re.IGNORECASE
+)
+
+# BLIP caption substrings that identify decorative page chrome.
+# Checked as substring matches so partial phrases still fire.
+_DECORATIVE_CAPTIONS = frozenset({
+    # Blank / frame elements
+    "sticky note", "note paper", "blank paper", "blank page",
+    "blank sheet", "white frame", "pink border", "blue border",
+    # QR codes / barcodes
+    "qr code", "qr - qr",
+    # Background / texture / callout box patterns
+    "background with a floral", "background with a gry",
+    "background with a white background",  # repeating bg = noise texture
+    "white sheet with a", "white square frame",
+    "yellow frame with", "blank paper with a border",
+    "beige background", "wavy background",
+    # Textbook navigation icons
+    "girl sitting on a chair", "girl reading a book",
+    "boy with a hand up", "drawing of a boy", "computer mouse",
+    "girl holding a magni", "girl with a magni",
+    "logo for the computer", "logo for the new",
+    # People / activity icons (sidebar chrome)
+    "boy reading a book", "boy sitting at a",
+    "boy with glasses reading", "boy and girl sitting on a bench",
+    "girl is playing", "girl sitting at her desk",
+    "woman sitting on a bench", "man in a suit",
+    "silhouette of a man", "hands raised up",
+    "young boy sitting at a desk", "drawing of a man",
+    "a black and white drawing of a man",
+    # Activity-panel icons
+    "looking at a flower", "looking at a plant",
+    "notepad with a blank", "chain with a blank", "chain around it",
+    # Logo / watermark spam
+    "logo for the school", "logo for the world",
+    "logo for the department",
+})
+
+# Minimum pixel dimension on either side.  Images narrower or shorter than
+# this are icons, bullets, horizontal rules, or other page chrome.
+_MIN_IMAGE_DIM = 100
+
+# If any word (length > 2) appears this many times in the BLIP caption the
+# model is hallucinating on a noise / texture / decorative image — skip it.
+_HALLUCINATION_REPEAT = 4
 
 from app.models.node import Node
 
@@ -126,18 +179,222 @@ class PDFParser:
             detected_title
         )
 
+    @staticmethod
+    def _block_is_readable(block_text: str) -> bool:
+        """True when a text block contains real prose, not OCR garbage."""
+        stripped = block_text.strip()
+        if len(stripped) < 4:
+            return False
+        non_ws = [c for c in stripped if not c.isspace()]
+        if not non_ws:
+            return False
+        return sum(1 for c in non_ws if c.isalpha()) / len(non_ws) >= 0.40
+
+    @staticmethod
+    def _is_decorative_caption(caption: str) -> bool:
+        """True when the BLIP caption identifies the image as decorative
+        page chrome (icon, sticky note, blank frame, QR code, etc.)."""
+        text = (caption or "").lower()
+        return any(marker in text for marker in _DECORATIVE_CAPTIONS)
+
+    @staticmethod
+    def _is_hallucinated_caption(caption: str) -> bool:
+        """True when BLIP is hallucinating: any meaningful word (> 2 chars)
+        repeats 4+ times.  This reliably catches captions like
+        'a cica cica cica cica' or 'dna dna dna dna dna' that BLIP produces
+        when the image is a noise texture, background pattern, or page chrome
+        it cannot interpret."""
+        words = [
+            w for w in (caption or "").lower().split()
+            if len(w) > 2
+        ]
+        if len(words) < _HALLUCINATION_REPEAT:
+            return False
+        return (
+            Counter(words).most_common(1)[0][1]
+            >= _HALLUCINATION_REPEAT
+        )
+
+    def _find_figure_label(
+        self,
+        page,
+        xref,
+        blocks
+    ):
+
+        """Return the explicit figure caption line for this image, e.g.
+        'Figure 3.2: Structure of the neuron'.  Returns '' when no labelled
+        caption is found (decorative or unlabelled images)."""
+
+        try:
+
+            rects = page.get_image_rects(xref)
+
+        except Exception:
+
+            return ""
+
+        if not rects:
+
+            return ""
+
+        rect = rects[0]
+        cx = (rect.x0 + rect.x1) / 2
+        cy = (rect.y0 + rect.y1) / 2
+
+        def dist(block):
+
+            bx = (block[0] + block[2]) / 2
+            by = (block[1] + block[3]) / 2
+
+            return ((bx - cx) ** 2 + (by - cy) ** 2) ** 0.5
+
+        caption_blocks = [
+            b for b in (blocks or [])
+            if self._block_is_readable(b[4])
+            and _CAPTION_RE.match(b[4].strip())
+        ]
+
+        if not caption_blocks:
+
+            return ""
+
+        caption_blocks.sort(key=dist)
+
+        return (
+            caption_blocks[0][4]
+            .strip()
+            .replace("\n", " ")
+            [:300]
+        )
+
+    def _nearest_text(
+        self,
+        page,
+        xref,
+        blocks,
+        fallback_ocr: str = ""
+    ):
+
+        """Return the page text most relevant to this figure for indexing.
+
+        Phase 1 — Explicit figure captions (Figure X.Y, Fig., Diagram …)
+        are the strongest retrieval signal; returned directly when found.
+        Phase 2 — Short text blocks immediately below the image (≤ 120 pt
+        gap, ≤ 400 chars) are used when no labelled caption exists; these
+        are typically sub-figure labels or un-numbered descriptions.
+        Phase 3 — General nearest-text fallback: 5 closest readable blocks.
+        Phase 4 — Page-level Tesseract output for fully scanned pages."""
+
+        try:
+
+            rects = page.get_image_rects(xref)
+
+        except Exception:
+
+            return ""
+
+        if not rects:
+
+            return ""
+
+        rect = rects[0]
+        cx = (rect.x0 + rect.x1) / 2
+        cy = (rect.y0 + rect.y1) / 2
+
+        def centroid_dist(block):
+
+            bx = (block[0] + block[2]) / 2
+            by = (block[1] + block[3]) / 2
+
+            return ((bx - cx) ** 2 + (by - cy) ** 2) ** 0.5
+
+        readable = [
+            b for b in (blocks or [])
+            if self._block_is_readable(b[4])
+        ]
+
+        if not readable:
+
+            return (
+                fallback_ocr[:400].strip()
+                if fallback_ocr
+                else ""
+            )
+
+        # Phase 1: explicit figure caption line
+        caption_blocks = [
+            b for b in readable
+            if _CAPTION_RE.match(b[4].strip())
+        ]
+
+        if caption_blocks:
+
+            caption_blocks.sort(key=centroid_dist)
+
+            return (
+                caption_blocks[0][4]
+                .strip()
+                .replace("\n", " ")
+                [:600]
+            )
+
+        # Phase 2: short text directly below the image
+        below_blocks = [
+            b for b in readable
+            if b[1] >= rect.y1 - 5        # top of block at/below image bottom
+            and b[1] <= rect.y1 + 120     # within 120 pt gap
+            and 10 <= len(b[4].strip()) <= 400  # caption-length, not a full paragraph
+        ]
+
+        if below_blocks:
+
+            below_blocks.sort(key=lambda b: b[1])
+
+            text = " ".join(
+                b[4].strip().replace("\n", " ")
+                for b in below_blocks[:3]
+            )
+
+            return text[:600].strip()
+
+        # Phase 3: general nearest text (original behaviour)
+        nearest = sorted(readable, key=centroid_dist)[:5]
+
+        text = " ".join(
+            block[4].strip().replace("\n", " ")
+            for block in nearest
+        )
+
+        return text[:600].strip()
+
     def _extract_images(
         self,
         doc,
         page,
-        page_num
+        page_num,
+        page_ocr_text: str = ""
     ):
 
         image_nodes = []
 
         image_list = (
-            page.get_images()
+            page.get_images(full=True)
         )
+
+        # Text blocks on the page, used to attach each figure's nearby
+        # caption/label text (computed once per page).
+        try:
+
+            text_blocks = [
+                block
+                for block in page.get_text("blocks")
+                if block[6] == 0 and block[4].strip()
+            ]
+
+        except Exception:
+
+            text_blocks = []
 
         for img_index, img in enumerate(
             image_list
@@ -160,6 +417,28 @@ class PDFParser:
                 image_ext = (
                     base_image["ext"]
                 )
+
+                # -------------------------
+                # GATE 1: SIZE
+                # Skip tiny images before
+                # writing anything to disk.
+                # -------------------------
+
+                img_w = base_image.get("width", 0)
+                img_h = base_image.get("height", 0)
+
+                if (
+                    img_w < _MIN_IMAGE_DIM
+                    or img_h < _MIN_IMAGE_DIM
+                ):
+
+                    print(
+                        f"  Skipping small image "
+                        f"{img_w}x{img_h} px "
+                        f"(decorative)"
+                    )
+
+                    continue
 
                 filename = (
                     f"page_{page_num}"
@@ -194,10 +473,48 @@ class PDFParser:
                     )
                 )
 
+                safe_caption = caption.encode(
+                    "ascii", errors="replace"
+                ).decode("ascii")
+
                 print(
                     f"Image Caption: "
-                    f"{caption}"
+                    f"{safe_caption}"
                 )
+
+                # -------------------------
+                # GATE 2: CAPTION
+                # Remove saved file and skip
+                # decorative page chrome.
+                # -------------------------
+
+                if (
+                    self._is_decorative_caption(caption)
+                    or self._is_hallucinated_caption(caption)
+                ):
+
+                    reason = (
+                        "hallucinated"
+                        if self._is_hallucinated_caption(caption)
+                        else "decorative"
+                    )
+
+                    print(
+                        f"  Skipping {reason} "
+                        f"image: {safe_caption[:80]}"
+                    )
+
+                    try:
+
+                        image_path.unlink(
+                            missing_ok=True
+                        )
+
+                    except Exception:
+
+                        pass
+
+                    continue
 
                 # -------------------------
                 # IMAGE OCR
@@ -215,9 +532,48 @@ class PDFParser:
 
                 if ocr_text:
 
+                    safe_ocr = ocr_text[:100].encode(
+                        "ascii", errors="replace"
+                    ).decode("ascii")
+
                     print(
                         f"Image OCR: "
-                        f"{ocr_text[:100]}"
+                        f"{safe_ocr}"
+                    )
+
+                # Explicit caption line, e.g. "Figure 3.2: The neuron"
+                figure_label = self._find_figure_label(
+                    page,
+                    xref,
+                    text_blocks
+                )
+
+                if figure_label:
+
+                    safe_label = figure_label[:100].encode(
+                        "ascii", errors="replace"
+                    ).decode("ascii")
+
+                    print(
+                        f"Figure Label: {safe_label}"
+                    )
+
+                # Broader context text from the page near the figure.
+                context_text = self._nearest_text(
+                    page,
+                    xref,
+                    text_blocks,
+                    fallback_ocr=page_ocr_text
+                )
+
+                if context_text:
+
+                    safe = context_text[:100].encode(
+                        "ascii", errors="replace"
+                    ).decode("ascii")
+
+                    print(
+                        f"Figure Context: {safe}"
                     )
 
                 image_node = Node(
@@ -240,7 +596,13 @@ class PDFParser:
                     caption,
 
                     ocr_text=
-                    ocr_text
+                    ocr_text,
+
+                    context_text=
+                    context_text,
+
+                    figure_label=
+                    figure_label
                 )
 
                 image_nodes.append(
@@ -321,7 +683,8 @@ class PDFParser:
                         self._extract_images(
                             doc,
                             page,
-                            page_num
+                            page_num,
+                            page_ocr_text=text
                         )
                     )
 

@@ -64,7 +64,7 @@ IMAGE_RELEVANCE_MARGIN = 2.0
 IMAGE_STANDOUT_MARGIN = 1.5
 
 # Max images returned: default vs an explicit "show all images" request.
-MAX_IMAGES = 3
+MAX_IMAGES = 2
 MAX_IMAGES_EXPLICIT = 8
 
 # Max source citations to display. Only the sources that actually answer
@@ -96,22 +96,57 @@ def _is_refusal(answer):
 # Captions BLIP assigns to decorative page chrome (sticky-note graphics,
 # blank framed boxes) that are not real content figures. Such images are
 # never useful answers, so they are dropped before figure selection.
+from collections import Counter as _Counter
+
 _DECORATIVE_MARKERS = (
-    "sticky note",
-    "note paper",
-    "blank paper",
-    "blank page",
-    "blank sheet",
+    # Blank / frame elements
+    "sticky note", "note paper", "blank paper", "blank page",
+    "blank sheet", "white frame", "pink border", "blue border",
+    # QR codes / barcodes
+    "qr code", "qr - qr",
+    # Background / texture / callout box patterns
+    "background with a floral", "background with a gry",
+    "background with a white background",
+    "white sheet with a", "white square frame",
+    "yellow frame with", "blank paper with a border",
+    "beige background", "wavy background",
+    # Textbook navigation icons
+    "girl sitting on a chair", "girl reading a book",
+    "boy with a hand up", "drawing of a boy", "computer mouse",
+    "girl holding a magni", "girl with a magni",
+    "logo for the computer", "logo for the new",
+    # People / activity sidebar icons
+    "boy reading a book", "boy sitting at a",
+    "boy with glasses reading", "boy and girl sitting on a bench",
+    "girl is playing", "girl sitting at her desk",
+    "woman sitting on a bench", "man in a suit",
+    "silhouette of a man", "hands raised up",
+    "young boy sitting at a desk", "drawing of a man",
+    "a black and white drawing of a man",
+    # Activity-panel icons
+    "looking at a flower", "looking at a plant",
+    "notepad with a blank", "chain with a blank", "chain around it",
+    # Logo / watermark spam
+    "logo for the school", "logo for the world",
+    "logo for the department",
 )
+
+
+def _is_hallucinated(text: str) -> bool:
+    """True when a word (> 2 chars) repeats 4+ times — BLIP hallucination."""
+    words = [w for w in (text or "").lower().split() if len(w) > 2]
+    if len(words) < 4:
+        return False
+    return _Counter(words).most_common(1)[0][1] >= 4
 
 
 def _is_decorative(content):
 
     text = (content or "").lower()
 
-    return any(
-        marker in text
-        for marker in _DECORATIVE_MARKERS
+    return (
+        any(marker in text for marker in _DECORATIVE_MARKERS)
+        or _is_hallucinated(text)
     )
 
 
@@ -449,15 +484,55 @@ class RAGChatbot:
 
             return []
 
-        # Rank the candidate figures by relevance to the query (caption
-        # vs query) so the labelled brain diagram beats an unrelated
-        # figure that merely shares the page.
-        image_contexts = (
-            self.reranker.rerank(
-                query=question,
-                contexts=image_contexts
-            )
+        # Rerank figures using explicit figure_label + FIGURE: context text.
+        # BLIP captions are excluded — they describe visual appearance
+        # ("a girl looking at a flower") not document topic.
+        # figure_label (e.g. "Figure 3.2: The neuron") is the strongest
+        # signal, followed by the broader FIGURE: context text and OCR.
+        rerank_copies = []
+        for i, ctx in enumerate(image_contexts):
+            content = ctx.get("content", "")
+            metadata = ctx.get("metadata", {}) or {}
+            figure_label = metadata.get("figure_label", "")
+
+            rerank_parts = []
+
+            # 1. Explicit figure label (highest priority)
+            if figure_label:
+                rerank_parts.append(figure_label)
+
+            # 2. FIGURE: section from content (excludes BLIP caption)
+            if content.startswith("FIGURE:"):
+                figure_part = content.split("\nIMAGE CONTENT:")[0]
+                figure_text = figure_part[len("FIGURE:"):].strip()
+                if figure_text and figure_text != figure_label:
+                    rerank_parts.append(figure_text)
+
+            # 3. OCR text inside the image as secondary signal
+            if "\nIMAGE TEXT:" in content:
+                ocr_part = content.split("\nIMAGE TEXT:")[-1].strip()
+                if ocr_part:
+                    rerank_parts.append(ocr_part)
+
+            if not rerank_parts:
+                rerank_parts.append(content)
+
+            rerank_text = " ".join(rerank_parts).strip()
+            copy = dict(ctx)
+            copy["content"] = rerank_text or content
+            copy["_orig_idx"] = i
+            rerank_copies.append(copy)
+
+        reranked_copies = self.reranker.rerank(
+            query=question,
+            contexts=rerank_copies
         )
+
+        # Transfer scores back to original contexts
+        for copy in reranked_copies:
+            image_contexts[copy["_orig_idx"]]["rerank_score"] = copy[
+                "rerank_score"
+            ]
 
         image_contexts.sort(
             key=lambda c: c.get(
@@ -478,24 +553,31 @@ class RAGChatbot:
             0.0
         )
 
-        # Normal query precision gate: show a figure only when it is clearly
-        # the most relevant. With several near-tied figures the captions
-        # give no signal, so show nothing instead of a random one. A single
-        # figure on the grounded page is taken as-is.
-        if not wants_all:
+        # Normal query precision gate + multi-image selection.
+        #
+        # When several figures are candidates, require a discriminating
+        # signal: the best must stand out from the weakest (otherwise the
+        # figures are indistinguishable - e.g. weak captions - and we show
+        # nothing rather than guess). When a signal exists, keep the whole
+        # relevant CLUSTER (every figure close to the best), so a query
+        # with several genuinely-relevant figures returns all of them.
+        if not wants_all and len(image_contexts) > 1:
 
-            if len(image_contexts) > 1:
+            scores = [
+                context.get("rerank_score", 0.0)
+                for context in image_contexts
+            ]
 
-                second_score = image_contexts[1].get(
-                    "rerank_score",
-                    0.0
-                )
+            if best_score - min(scores) < IMAGE_STANDOUT_MARGIN:
 
-                if best_score - second_score < IMAGE_STANDOUT_MARGIN:
+                return []
 
-                    return []
-
-            image_contexts = image_contexts[:1]
+            image_contexts = [
+                context
+                for context in image_contexts
+                if best_score - context.get("rerank_score", 0.0)
+                <= IMAGE_RELEVANCE_MARGIN
+            ]
 
         images = []
 
@@ -570,9 +652,17 @@ class RAGChatbot:
                 collection_name=
                 collection_name,
 
-                limit=30
+                limit=60
             )
         )
+
+        # Images are discovered separately by page-join; exclude them from
+        # the main text pipeline so they don't crowd out text nodes in the
+        # top-k rerank results (biology has 67% image nodes).
+        text_contexts = [
+            c for c in contexts
+            if c.get("node_type") != "image"
+        ]
 
         contexts = (
             self.reranker.rerank(
@@ -580,7 +670,7 @@ class RAGChatbot:
                 retrieval_query,
 
                 contexts=
-                contexts
+                text_contexts
             )
         )
 
@@ -623,9 +713,10 @@ class RAGChatbot:
             )
         )
 
-        generation_contexts = (
-            retrieved_contexts[:8]
-        )
+        generation_contexts = [
+            c for c in retrieved_contexts
+            if c.get("node_type") != "image"
+        ][:8]
 
         source_contexts = (
             self._select_sources(

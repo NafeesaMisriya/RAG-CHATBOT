@@ -41,7 +41,50 @@ class Chunker:
                 else ""
             )
 
-            image_content = (
+            context_text = (
+                node.context_text
+                if node.context_text
+                else ""
+            )
+
+            figure_label = (
+                node.figure_label
+                if node.figure_label
+                else ""
+            )
+
+            # Build the FIGURE: section.
+            # figure_label (explicit caption, e.g. "Figure 3.2: Neurons") is the
+            # strongest retrieval signal: it names the topic and figure number.
+            # context_text is the broader on-page text near the figure.
+            # BLIP caption and OCR follow as secondary signal.
+            image_content = ""
+
+            if figure_label:
+
+                image_content += (
+                    f"FIGURE: {figure_label}"
+                )
+
+                # Append broader context when it adds information beyond the label
+                if (
+                    context_text
+                    and context_text.strip() != figure_label.strip()
+                ):
+
+                    image_content += (
+                        f" | {context_text}"
+                    )
+
+                image_content += "\n"
+
+            elif context_text:
+
+                image_content += (
+                    f"FIGURE: {context_text}\n"
+                )
+
+            image_content += (
                 f"IMAGE CONTENT: {caption}"
             )
 
@@ -73,7 +116,16 @@ class Chunker:
                         "image",
 
                         "image_path":
-                        node.image_path
+                        node.image_path,
+
+                        # figure_label stored as title so the keyword-boost in
+                        # Retriever._apply_keyword_boost() matches queries that
+                        # reference the figure by number or topic name.
+                        "title":
+                        figure_label or "",
+
+                        "figure_label":
+                        figure_label or ""
                     }
                 )
             ]
