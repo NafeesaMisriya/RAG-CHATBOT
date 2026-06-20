@@ -27,6 +27,15 @@ _DECORATIVE_CAPTIONS = frozenset({
     "white sheet with a", "white square frame",
     "yellow frame with", "blank paper with a border",
     "beige background", "wavy background",
+    "striped background", "blue and yellow striped",
+    "beige paint color", "beige paint",
+    "piece of paper with a brown", "piece of paper with a yellow",
+    "piece of paper with a blue", "piece of paper with a red",
+    "white and gray abstract", "gray abstract pattern",
+    "abstract pattern",
+    "light blue color with a white", "light blue background",
+    "blue color with a white background",
+    "color with a white background",
     # Textbook navigation icons
     "girl sitting on a chair", "girl reading a book",
     "boy with a hand up", "drawing of a boy", "computer mouse",
@@ -46,6 +55,8 @@ _DECORATIVE_CAPTIONS = frozenset({
     # Logo / watermark spam
     "logo for the school", "logo for the world",
     "logo for the department",
+    "logo for the indian", "logo for the state",
+    "logo for the national", "logo for the government",
 })
 
 # Minimum pixel dimension on either side.  Images narrower or shorter than
