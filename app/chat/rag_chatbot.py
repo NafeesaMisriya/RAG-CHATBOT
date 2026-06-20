@@ -462,42 +462,27 @@ class RAGChatbot:
         and unrelated ones are dropped."""
 
         wants_all = self._wants_all_images(question)
-        wants_image = self._mentions_images(question)
 
-        if wants_image:
-            # Direct full-collection search: fetch ALL image nodes and
-            # rerank against the query. Bypasses page anchoring entirely.
-            #
-            # Page anchoring fails for explicit image queries because text
-            # retrieval anchors to the pages where the *discussion* of a
-            # figure appears, not the page where the figure itself is
-            # embedded. E.g. "give the periodic table image" → text lands
-            # on pages 17/21/23 (discussion) but the image is on page 7/19.
-            image_contexts = (
-                self.retriever.qdrant.get_all_image_nodes(
-                    collection_name=collection_name
-                )
+        # The relevance gate is bypassed ONLY for an explicit "show all the
+        # images" browse request (which has no topic to ground on). A
+        # topical image request like "image of brain" still must ground —
+        # otherwise an off-topic query surfaces a random figure.
+        pages = self._anchor_pages(
+            contexts,
+            relax=wants_all,
+            broad=wants_all
+        )
+
+        if not pages:
+
+            return []
+
+        image_contexts = (
+            self.retriever.qdrant.get_image_nodes_by_pages(
+                collection_name=collection_name,
+                pages=pages
             )
-
-        else:
-            # Page-anchor approach for implicit figure queries:
-            # ground to the relevant text pages and pull images from those.
-            pages = self._anchor_pages(
-                contexts,
-                relax=False,
-                broad=False
-            )
-
-            if not pages:
-
-                return []
-
-            image_contexts = (
-                self.retriever.qdrant.get_image_nodes_by_pages(
-                    collection_name=collection_name,
-                    pages=pages
-                )
-            )
+        )
 
         image_contexts = [
             context
@@ -579,12 +564,15 @@ class RAGChatbot:
             0.0
         )
 
-        # Precision gate — only applied when the user did NOT explicitly ask
-        # for figures/images. For a topical non-image query we require a clear
-        # discriminating signal (best image must stand out) to avoid surfacing
-        # an unrelated figure. When the user explicitly asks for a figure we
-        # skip this gate: they want the best match regardless of spread.
-        if not wants_image and not wants_all and len(image_contexts) > 1:
+        # Normal query precision gate + multi-image selection.
+        #
+        # When several figures are candidates, require a discriminating
+        # signal: the best must stand out from the weakest (otherwise the
+        # figures are indistinguishable - e.g. weak captions - and we show
+        # nothing rather than guess). When a signal exists, keep the whole
+        # relevant CLUSTER (every figure close to the best), so a query
+        # with several genuinely-relevant figures returns all of them.
+        if not wants_all and len(image_contexts) > 1:
 
             scores = [
                 context.get("rerank_score", 0.0)
@@ -595,14 +583,12 @@ class RAGChatbot:
 
                 return []
 
-        # Keep the relevant cluster: every figure within IMAGE_RELEVANCE_MARGIN
-        # of the best score. For explicit image requests keep top-2 max.
-        image_contexts = [
-            context
-            for context in image_contexts
-            if best_score - context.get("rerank_score", 0.0)
-            <= IMAGE_RELEVANCE_MARGIN
-        ]
+            image_contexts = [
+                context
+                for context in image_contexts
+                if best_score - context.get("rerank_score", 0.0)
+                <= IMAGE_RELEVANCE_MARGIN
+            ]
 
         images = []
 
@@ -797,16 +783,13 @@ class RAGChatbot:
             )
         )
 
-        # If the model couldn't answer from the document, suppress sources
-        # so they don't contradict the refusal. Keep images when the user
-        # explicitly asked for a figure — the LLM can't render images so it
-        # always refuses figure-only requests, but the figure still exists.
+        # If the model couldn't answer from the document, don't attach
+        # figures or sources — they would contradict the refusal.
         if _is_refusal(answer):
 
             source_contexts = []
 
-            if not self._mentions_images(question):
-                image_sources = []
+            image_sources = []
 
         return {
 
@@ -872,15 +855,13 @@ class RAGChatbot:
                 "data": chunk
             }
 
-        # Suppress sources on refusal. Keep images when the user explicitly
-        # asked for a figure — the LLM always "can't find" a figure in text
-        # but the image itself may have been retrieved successfully.
+        # If the model couldn't answer from the document, suppress figures
+        # and sources so they don't contradict the refusal.
         if _is_refusal(full_answer):
 
             source_contexts = []
 
-            if not self._mentions_images(question):
-                image_sources = []
+            image_sources = []
 
         yield {
             "type": "sources",
