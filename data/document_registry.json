@@ -10,5 +10,9 @@
     {
         "name": "Chemistry.pdf",
         "collection": "chemistry"
+    },
+    {
+        "name": "English.pdf",
+        "collection": "english"
     }
 ]
