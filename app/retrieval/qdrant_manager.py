@@ -345,6 +345,80 @@ class QdrantManager:
 
         return contexts
 
+    def get_all_image_nodes(
+        self,
+        collection_name: str,
+        limit: int = 512
+    ):
+
+        """Fetch every image node in the collection.
+
+        Used for explicit image queries ('give the periodic table image',
+        'show figure 1.5') where the relevant image may be on a different
+        page than the text that discusses it. After fetching, the caller
+        reranks all candidates against the query and picks the best match."""
+
+        scroll_filter = Filter(
+            must=[
+                FieldCondition(
+                    key="metadata.node_type",
+                    match=MatchValue(value="image")
+                )
+            ]
+        )
+
+        points, _ = self.client.scroll(
+            collection_name=collection_name,
+            scroll_filter=scroll_filter,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False
+        )
+
+        contexts = []
+
+        for point in points:
+
+            payload = point.payload or {}
+
+            metadata = payload.get(
+                "metadata",
+                {}
+            ) or {}
+
+            contexts.append(
+                {
+                    "content":
+                    payload.get("content", ""),
+
+                    "page":
+                    payload.get("page"),
+
+                    "source_document":
+                    payload.get("source_document"),
+
+                    "score":
+                    0.0,
+
+                    "metadata":
+                    metadata,
+
+                    "title":
+                    metadata.get("title"),
+
+                    "unit":
+                    metadata.get("unit"),
+
+                    "node_type":
+                    "image",
+
+                    "image_path":
+                    metadata.get("image_path")
+                }
+            )
+
+        return contexts
+
     def get_collection_info(
         self,
         collection_name: str
