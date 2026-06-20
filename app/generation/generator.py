@@ -122,91 +122,92 @@ Answer:
 
         return history_text
 
-        def generate(
-            self,
-            query,
-            contexts,
-            history=None
-        ):
+    def generate(
+        self,
+        query,
+        contexts,
+        history=None
+    ):
 
-            if history is None:
+        if history is None:
 
-                history = []
+            history = []
 
-            context_text = (
-                self._build_context_text(
-                    contexts
+        context_text = (
+            self._build_context_text(
+                contexts
+            )
+        )
+
+        history_text = (
+            self._build_history_text(
+                history
+            )
+        )
+
+        payload = {
+
+            "history":
+            history_text,
+
+            "context":
+            context_text,
+
+            "question":
+            query
+        }
+
+        try:
+
+            return (
+                self.chain.invoke(
+                    payload
                 )
             )
 
-            history_text = (
-                self._build_history_text(
-                    history
-                )
+        except Exception as e:
+
+            print(
+                f"\nPrimary LLM Failed: {e}"
             )
-
-            payload = {
-
-                "history":
-                history_text,
-
-                "context":
-                context_text,
-
-                "question":
-                query
-            }
 
             try:
 
+                print(
+                    "\nTrying Fallback LLM..."
+                )
+
+                fallback_llm = (
+                    LLMFactory
+                    .get_alternate_llm()
+                )
+
+                fallback_chain = (
+                    self.prompt
+                    |
+                    fallback_llm
+                    |
+                    self.parser
+                )
+
                 return (
-                    self.chain.invoke(
+                    fallback_chain.invoke(
                         payload
                     )
                 )
 
-            except Exception as e:
+            except Exception as e2:
 
                 print(
-                    f"\nPrimary LLM Failed: {e}"
+                    f"\nFallback Failed: {e2}"
                 )
 
-                try:
+                return (
+                    "⚠️ All language "
+                    "model providers are "
+                    "currently unavailable."
+                )
 
-                    print(
-                        "\nTrying Fallback LLM..."
-                    )
-
-                    fallback_llm = (
-                        LLMFactory
-                        .get_alternate_llm()
-                    )
-
-                    fallback_chain = (
-                        self.prompt
-                        |
-                        fallback_llm
-                        |
-                        self.parser
-                    )
-
-                    return (
-                        fallback_chain.invoke(
-                            payload
-                        )
-                    )
-
-                except Exception as e2:
-
-                    print(
-                        f"\nFallback Failed: {e2}"
-                    )
-
-                    return (
-                        "⚠️ All language "
-                        "model providers are "
-                        "currently unavailable."
-                    )
     def stream_generate(
         self,
         query,
