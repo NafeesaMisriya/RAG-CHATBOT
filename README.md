@@ -1,4 +1,4 @@
-# DocuMind / RAG Document Intelligence Chatbot
+# ConteXora| Transforming context into Intelligence 
 
 A full-stack Retrieval-Augmented Generation (RAG) application for chatting with PDF documents. Users can upload one or more PDFs, extract text and images, build vector indexes, and ask questions in natural language while receiving grounded answers with source references.
 
