@@ -74,7 +74,7 @@ export default function App() {
   };
 
   if (path === "/" || path === "") {
-    return <LandingPage onExplore={() => navigate("/chat")} />;
+    return <LandingPage onExplore={() => navigate("/chat")} onNavigate={navigate} />;
   }
 
   return (
@@ -93,6 +93,7 @@ export default function App() {
         onDelete={handleDelete}
         onClearConversation={chat.clear}
         onOpenUpload={() => setUploadModalOpen(true)}
+        onNavigate={navigate}
       />
 
       <main className="main">

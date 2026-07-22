@@ -12,6 +12,7 @@ interface Props {
   onDelete: (doc: DocumentInfo) => void;
   onClearConversation: () => void;
   onOpenUpload: () => void;
+  onNavigate: (path: string) => void;
 }
 
 export function Sidebar({
@@ -24,14 +25,15 @@ export function Sidebar({
   onDelete,
   onClearConversation,
   onOpenUpload,
+  onNavigate,
 }: Props) {
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
-      <div className="sidebar-header">
-        <img className="brand-logo" src="/contexora-mark.png" alt="ConteXora logo" />
+      <div className="sidebar-header" onClick={() => onNavigate("/")} style={{ cursor: "pointer" }} title="Go to Landing Page">
+        <img className="brand-logo" src="/logo.png" alt="ConteXora logo" style={{ marginRight: "12px" }} />
         <div className="brand-text">
           <div className="brand-name">
-            <span>ConteX</span>ora
+            <span>ConteX</span><span style={{ fontWeight: 400 }}>ora</span>
           </div>
           <div className="brand-tag">Transforming Context into Intelligence</div>
         </div>
@@ -58,6 +60,7 @@ export function Sidebar({
       </div>
 
       <div className="sidebar-footer">
+
         <button
           className="btn btn-ghost btn-sm"
           onClick={onClearConversation}

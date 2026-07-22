@@ -10,7 +10,7 @@ const SUGGESTIONS = [
 export function NoDocument() {
   return (
     <div className="empty">
-      <img className="empty-logo" src="/contexora-logo.png" alt="ConteXora" />
+      <img className="empty-logo" src="/logo.png" alt="ConteXora" />
       <p>
         Upload a document from the sidebar to build a searchable knowledge base,
         then ask questions and get grounded, cited answers.
@@ -33,7 +33,7 @@ export function NewConversation({
       </div>
       <h2>Chat with {documentName}</h2>
       <p>
-        Ask a question and ConteXora will retrieve the most relevant passages,
+        Ask a question and ConteX<span style={{ fontWeight: 400 }}>ora</span> will retrieve the most relevant passages,
         figures, and pages to answer — with sources you can verify.
       </p>
       <div className="suggestions">

@@ -34,12 +34,12 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className="msg assistant">
       <div className="avatar">
-        <img src="/contexora-mark.png" alt="ConteXora logo" />
+        <img src="/logo.png" alt="ConteXora logo" />
       </div>
       <div className="body" style={{ width: "100%" }}>
         <div className="card">
           <div className="msg-header">
-            <span className="msg-author">ConteXora</span>
+            <span className="msg-author">ConteX<span style={{ fontWeight: 400 }}>ora</span></span>
             <span className="msg-meta">{timeStr}</span>
           </div>
 

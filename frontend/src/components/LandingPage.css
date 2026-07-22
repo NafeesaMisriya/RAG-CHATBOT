@@ -1,57 +1,93 @@
-/* =========================================================
-   ConteXora Landing Page CSS
-   ========================================================= */
-
+/* ===================== Design tokens ===================== */
 .landing-container {
+  --navy: #0f1c38;
+  --navy-deep: #0b1530;
+  --cream: #f6f1e7;
+  --cream-soft: #f1ead9;
+  --gold: #c9862f;
+  --gold-bright: #d99a3f;
+  --ink: #16213f;
+  --ink-soft: #3a4560;
+
+  box-sizing: border-box;
+  position: relative;
   min-height: 100vh;
-  background-color: #f7f4ed; /* Warm beige/cream background matching the mockup */
-  color: #0b1626; /* Deep navy text color */
+  width: 100%;
+  max-width: 100vw;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  font-family: "Inter", -apple-system, sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   overflow-x: hidden;
 }
 
-/* =========================================================
-   Header Styling
-   ========================================================= */
+.landing-container *,
+.landing-container *::before,
+.landing-container *::after {
+  box-sizing: border-box;
+}
+
+/* ===================== Background flourishes ===================== */
+.landing-bg-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--ink) 1px, transparent 1px);
+  background-size: 26px 26px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.landing-bg-glow {
+  position: absolute;
+  top: -10%;
+  right: -8%;
+  width: 620px;
+  height: 620px;
+  max-width: 100%;
+  background: radial-gradient(circle, rgba(201, 134, 47, 0.16) 0%, rgba(201, 134, 47, 0) 70%);
+  pointer-events: none;
+}
+
+/* ===================== Header ===================== */
 .landing-header {
-  height: 80px;
-  padding: 0 4%;
+  position: relative;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: transparent;
-  border-bottom: 1px solid rgba(11, 22, 38, 0.05);
+  padding: 28px 56px;
+  flex-wrap: wrap;
+  gap: 16px;
+  width: 100%;
 }
 
 .landing-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-.landing-brand-text {
-  display: flex;
-  flex-direction: column;
+.landing-logo-img {
+  border-radius: 10px;
 }
 
 .landing-brand-name {
-  font-size: 1.6rem;
+  font-size: 26px;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  color: #0b1626;
-  line-height: 1;
+  color: var(--navy);
+  margin: 0;
+  letter-spacing: 0.2px;
 }
 
 .landing-brand-tagline {
-  font-size: 0.72rem;
-  color: #c99a2e; /* Gold tagline */
+  margin: 0;
+  font-size: 12.5px;
   font-weight: 600;
-  margin-top: 2px;
+  color: var(--gold);
 }
 
+/* Nav now lives inside header-right-group, right next to Sign In */
 .landing-nav {
   display: flex;
   align-items: center;
@@ -59,143 +95,151 @@
 }
 
 .landing-nav-link {
-  font-size: 0.95rem;
+  font-size: 15px;
   font-weight: 600;
-  color: #4a5464;
+  color: var(--ink);
   text-decoration: none;
-  transition: color 0.15s ease;
-  position: relative;
-  padding: 4px 0;
+  opacity: 0.85;
+  white-space: nowrap;
+  transition: opacity 0.2s ease, color 0.2s ease;
 }
 
-.landing-nav-link:hover, 
+.landing-nav-link:hover,
 .landing-nav-link.active {
-  color: #0b1626;
-}
-
-.landing-nav-link.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: #c99a2e; /* Gold active indicator */
-  border-radius: 2px;
+  opacity: 1;
+  color: var(--navy);
 }
 
 .header-right-group {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
+  margin-left: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .header-divider {
   width: 1px;
   height: 28px;
-  background-color: rgba(11, 22, 38, 0.15); /* vertical line divider */
+  background: rgba(15, 28, 56, 0.15);
+  flex-shrink: 0;
 }
 
 .landing-signin-btn {
-  background-color: #0b1626; /* Dark navy pill */
-  color: #ffffff;
-  padding: 10px 22px;
-  border-radius: 99px;
-  font-size: 0.9rem;
-  font-weight: 600;
   display: flex;
   align-items: center;
   gap: 8px;
-  box-shadow: 0 4px 10px rgba(11, 22, 38, 0.15);
-  transition: all 0.2s ease;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: none;
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.15s ease, background 0.2s ease;
 }
 
 .landing-signin-btn:hover {
-  background-color: #172b49;
+  background: var(--navy-deep);
   transform: translateY(-1px);
 }
 
-/* =========================================================
-   Hero Section Styling
-   ========================================================= */
+/* ===================== Hero ===================== */
 .landing-hero {
+  position: relative;
+  z-index: 2;
   flex: 1;
-  padding: 4% 8%;
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1.05fr 0.95fr;
   align-items: center;
   gap: 64px;
+  padding: 40px 56px 80px;
+  width: 100%;
 }
 
 .landing-hero-left {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
+  max-width: 620px;
+  width: 100%;
 }
 
 .landing-headline {
-  font-size: 3.8rem;
-  font-weight: 800;
+  font-size: 56px;
   line-height: 1.12;
-  letter-spacing: -0.035em;
-  color: #0b1626;
-  margin-bottom: 16px;
+  font-weight: 800;
+  color: var(--navy);
+  margin: 0 0 18px;
+  letter-spacing: -0.5px;
 }
 
 .gold-text {
-  color: #c99a2e; /* Gold color */
+  color: var(--gold);
 }
 
 .landing-headline-underline {
-  width: 80px;
-  height: 3px;
-  background-color: #c99a2e;
-  margin-bottom: 24px;
+  width: 84px;
+  height: 4px;
   border-radius: 2px;
+  background: var(--gold);
+  margin-bottom: 24px;
 }
 
 .landing-subtitle {
-  font-size: 1.15rem;
+  font-size: 17px;
   line-height: 1.6;
-  color: #4a5464;
-  margin-bottom: 36px;
-  max-width: 480px;
+  color: var(--ink-soft);
+  max-width: 520px;
+  margin: 0 0 34px;
+}
+
+.landing-actions-group {
+  display: flex;
+  gap: 16px;
 }
 
 .landing-cta-btn {
-  background-color: #0b1626;
-  color: #ffffff;
-  padding: 14px 28px;
-  border-radius: 99px;
-  font-size: 1rem;
-  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 12px;
-  box-shadow: 0 6px 18px rgba(11, 22, 38, 0.25);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 10px;
+  padding: 15px 26px;
+  border-radius: 999px;
+  border: none;
+  background: var(--navy);
+  color: var(--cream);
+  font-size: 15.5px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(15, 28, 56, 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
-.landing-cta-btn svg:first-of-type {
-  color: #c99a2e; /* Sparkles colored gold */
+.landing-cta-btn svg:first-child {
+  color: var(--gold-bright);
 }
 
 .landing-cta-btn:hover {
-  background-color: #172b49;
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(11, 22, 38, 0.3);
+  box-shadow: 0 14px 28px rgba(15, 28, 56, 0.32);
 }
 
-/* =========================================================
-   Hero Right / Circuit Board Illustration
-   ========================================================= */
+/* ===================== Hero right / logo ===================== */
 .landing-hero-right {
   position: relative;
-  height: 440px;
+  width: 100%;
+  height: 480px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+.landing-hero-illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 20px 40px rgba(15, 28, 56, 0.12));
 }
 
 /* Background schematic circuit circles */
@@ -216,38 +260,6 @@
   inset: 15%;
   border: 1px dashed rgba(201, 154, 46, 0.12);
   border-radius: 50%;
-}
-
-/* Central Rounded Logo Shield with metallic inner border */
-.landing-hero-logo-panel {
-  position: absolute;
-  right: 5%;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background-color: #0b1626; /* Dark navy circle base */
-  border: 4px solid #c99a2e; /* Gold border frame */
-  box-shadow: 0 12px 36px rgba(11, 22, 38, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.inner-shield {
-  width: 190px;
-  height: 190px;
-  border-radius: 50%;
-  border: 2px dashed rgba(201, 154, 46, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.landing-large-logo {
-  width: 130px;
-  height: 130px;
-  object-fit: contain;
 }
 
 /* Golden circuit line terminals extending out to the right of the circle */
@@ -274,8 +286,10 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: #f7f4ed; /* cream fill */
-  border: 2.5px solid #c99a2e; /* gold border */
+  background-color: #f7f4ed;
+  /* cream fill */
+  border: 2.5px solid #c99a2e;
+  /* gold border */
 }
 
 .t-top {
@@ -305,24 +319,37 @@
   gap: 12px;
 }
 
-.feature-node.documents { top: 8%; left: 0%; }
-.feature-node.images { top: 31%; left: -14%; }
-.feature-node.tables { top: 54%; left: -16%; }
-.feature-node.knowledge { top: 77%; left: -8%; }
+.feature-node.documents {
+  top: 8%;
+  left: 0%;
+}
+
+.feature-node.images {
+  top: 31%;
+  left: -14%;
+}
+
+.feature-node.tables {
+  top: 54%;
+  left: -16%;
+}
+
+.feature-node.knowledge {
+  top: 77%;
+  left: -8%;
+}
 
 .feature-card {
   background-color: #ffffff;
   border: 1px solid rgba(11, 22, 38, 0.08);
-  border-radius: 12px;
-  padding: 10px 18px;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: center;
   box-shadow: 0 4px 12px rgba(11, 22, 38, 0.06);
-  font-size: 0.9rem;
-  font-weight: 600;
   color: #0b1626;
-  min-width: 130px;
   transition: transform 0.2s ease;
 }
 
@@ -331,175 +358,137 @@
 }
 
 .feature-card svg {
-  color: #c99a2e; /* Icon color gold */
+  color: #c99a2e;
+  /* Icon color gold */
 }
 
-/* Connector Lines - dashed diagonal lines leading to center shield */
-.connector-line {
-  position: absolute;
-  left: 100%;
-  height: 2px;
-  border-bottom: 2px dashed rgba(201, 154, 46, 0.45);
-  pointer-events: none;
-}
 
-.line-documents {
-  top: 50%;
-  width: 105px;
-  transform: rotate(18deg);
-  transform-origin: left center;
-}
 
-.line-images {
-  top: 50%;
-  width: 145px;
-  transform: rotate(8deg);
-  transform-origin: left center;
-}
-
-.line-tables {
-  top: 50%;
-  width: 145px;
-  transform: rotate(-8deg);
-  transform-origin: left center;
-}
-
-.line-knowledge {
-  top: 50%;
-  width: 105px;
-  transform: rotate(-18deg);
-  transform-origin: left center;
-}
-
-/* =========================================================
-   Footer Styling
-   ========================================================= */
-.landing-footer {
-  background-color: #08192e; /* Dark navy background */
+/* ===================== Footer band (quote + steps) ===================== */
+.landing-footer-band {
   position: relative;
-  padding-bottom: 40px;
-}
-
-.footer-wave-container {
-  width: 100%;
-  overflow: hidden;
-  line-height: 0;
-  margin-top: -30px; /* pull up to blend smoothly */
-  background: transparent;
-}
-
-.footer-wave-container svg {
-  width: 100%;
-  height: 60px;
-}
-
-.landing-footer-content {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 24px 4% 0;
-  display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
-  align-items: center;
-  gap: 48px;
-}
-
-/* Footer Quote Block */
-.landing-footer-left {
+  z-index: 2;
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  color: #ffffff;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 44px 56px;
+  background: var(--navy);
+  color: var(--cream);
+  border-top: 4px solid var(--gold);
+  border-radius: 60px 60px 0 0;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.landing-footer-quote {
+  position: relative;
+  max-width: 480px;
+  flex-shrink: 0;
+}
+
+.landing-footer-quote p {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
 .quote-mark {
-  font-size: 2.2rem;
-  color: #c99a2e; /* Gold quote */
-  font-weight: 700;
-  line-height: 1;
+  font-family: Georgia, serif;
+  color: var(--gold);
+  font-size: 34px;
+  line-height: 0;
 }
 
-.landing-footer-tagline {
-  font-size: 1.05rem;
-  line-height: 1.5;
-  font-weight: 500;
-  font-style: italic;
+.quote-mark-open {
+  display: block;
+  margin-bottom: 6px;
 }
 
-/* Footer Step Cards styling */
-.landing-footer-right {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+.quote-mark-close {
+  display: none;
+}
+
+.landing-footer-steps {
+  display: flex;
+  gap: 64px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .footer-step {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 12px;
+  color: var(--gold-bright);
   text-align: center;
-  gap: 8px;
-  padding: 12px 4px;
+  min-width: 90px;
+}
+
+.footer-step span {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cream);
+}
+
+/* ===================== Legal bar ===================== */
+.landing-legal-bar {
   position: relative;
-}
-
-/* Vertical divider lines between step blocks */
-.footer-step:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  right: -8px;
-  top: 15%;
-  bottom: 15%;
-  width: 1px;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.step-icon {
-  color: #c99a2e; /* Gold icons */
-}
-
-.step-meta {
+  z-index: 2;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 56px;
+  background: var(--navy-deep);
+  color: rgba(246, 241, 231, 0.7);
+  font-size: 13px;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.step-title {
-  color: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 600;
+.legal-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.step-desc {
-  color: #c99a2e;
-  font-size: 0.82rem;
-  font-weight: 500;
+.footer-link {
+  color: rgba(246, 241, 231, 0.7);
+  text-decoration: none;
 }
 
-/* =========================================================
-   Responsive Media Queries
-   ========================================================= */
-@media (max-width: 1160px) {
-  .feature-node.documents { left: 4% !important; }
-  .feature-node.images { left: -6% !important; }
-  .feature-node.tables { left: -8% !important; }
-  .feature-node.knowledge { left: -2% !important; }
-  
-  .line-documents { width: 85px; }
-  .line-images { width: 115px; }
-  .line-tables { width: 115px; }
-  .line-knowledge { width: 85px; }
+.footer-link:hover {
+  color: var(--gold-bright);
 }
 
-@media (max-width: 1024px) {
+.footer-separator {
+  opacity: 0.4;
+}
+
+/* ===================== Responsive ===================== */
+@media (max-width: 1200px) {
+  .landing-nav {
+    gap: 22px;
+  }
+}
+
+@media (max-width: 1080px) {
   .landing-hero {
-    grid-template-columns: 1fr;
-    gap: 48px;
+    flex-direction: column;
     text-align: center;
-    padding: 8% 4%;
+    padding-bottom: 60px;
   }
 
   .landing-hero-left {
-    align-items: center;
-    text-align: center;
+    padding-left: 0;
+  }
+
+  .landing-headline-underline {
+    margin-left: auto;
+    margin-right: auto;
   }
 
   .landing-subtitle {
@@ -507,69 +496,104 @@
     margin-right: auto;
   }
 
-  .landing-hero-right {
+  .landing-actions-group {
     justify-content: center;
-    height: 400px;
   }
 
-  .landing-hero-logo-panel {
-    right: 50%;
-    transform: translateX(50%);
-  }
-
-  .circuit-board-bg {
-    right: 50%;
-    transform: translateX(50%);
-  }
-
-  .gold-terminals,
-  .connector-line {
-    display: none; /* Hide connectors and gold terminals on mobile to preserve layout */
-  }
-
-  .feature-node.documents { top: 0% !important; left: 10% !important; }
-  .feature-node.images { top: 25% !important; left: 0% !important; }
-  .feature-node.tables { top: 55% !important; left: 0% !important; }
-  .feature-node.knowledge { top: 80% !important; left: 10% !important; }
-
-  .landing-footer-content {
-    grid-template-columns: 1fr;
-    gap: 36px;
+  .landing-footer-band {
+    flex-direction: column;
     text-align: center;
+    border-radius: 40px 40px 0 0;
   }
 
-  .landing-footer-left {
+  .landing-footer-steps {
+    flex-wrap: wrap;
     justify-content: center;
+    gap: 32px;
   }
 
-  .landing-footer-right {
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-  }
-
-  .footer-step:not(:last-child)::after {
-    display: none;
+  .header-right-group {
+    gap: 16px;
   }
 }
 
-@media (max-width: 640px) {
+@media (max-width: 900px) {
   .landing-header {
-    flex-direction: column;
-    height: auto;
-    padding: 16px 4%;
-    gap: 16px;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .landing-brand {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header-right-group {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
   }
 
   .landing-nav {
-    gap: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 720px) {
+
+  .landing-header,
+  .landing-hero,
+  .landing-footer-band,
+  .landing-legal-bar {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .landing-nav {
+    display: none;
+  }
+
+  .header-divider {
+    display: none;
   }
 
   .landing-headline {
-    font-size: 2.5rem;
+    font-size: 38px;
   }
 
-  .landing-footer-right {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  .landing-hero-right {
+    width: 100%;
+    max-width: 340px;
+    height: 340px;
+  }
+
+  .landing-hero-logo-panel {
+    width: 220px;
+    height: 220px;
+  }
+}
+
+@media (max-width: 480px) {
+  .landing-headline {
+    font-size: 30px;
+  }
+
+  .landing-subtitle {
+    font-size: 15px;
+  }
+
+  .landing-cta-btn {
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  .landing-footer-quote p {
+    font-size: 17px;
+  }
+
+  .landing-legal-bar {
+    flex-direction: column;
+    text-align: center;
   }
 }
