@@ -54,9 +54,7 @@ export function UploadPanel({ onUploaded }: Props) {
   const uploading = status.kind === "uploading";
 
   return (
-    <div>
-      <h3 className="section-label">Add document</h3>
-
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {!file && (
         <div
           className={`dropzone ${drag ? "drag" : ""}`}
@@ -73,10 +71,10 @@ export function UploadPanel({ onUploaded }: Props) {
           }}
         >
           <div className="dz-icon">
-            <UploadIcon size={24} />
+            <UploadIcon size={28} />
           </div>
-          <div className="dz-title">Drop a PDF or click to browse</div>
-          <div className="dz-hint">Max one file at a time</div>
+          <div className="dz-title">Drag & drop a PDF or click to browse</div>
+          <div className="dz-hint">Support single document ingestion</div>
           <input
             ref={inputRef}
             type="file"
@@ -90,8 +88,8 @@ export function UploadPanel({ onUploaded }: Props) {
       {file && (
         <div className="upload-card">
           <div className="upload-file">
-            <FileIcon size={16} />
-            <span className="name">{file.name}</span>
+            <FileIcon size={18} />
+            <span className="name" title={file.name}>{file.name}</span>
             <span className="muted">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
           </div>
 
@@ -101,17 +99,18 @@ export function UploadPanel({ onUploaded }: Props) {
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             <button
-              className="btn btn-primary btn-sm btn-block"
+              className="btn btn-primary"
               onClick={ingest}
               disabled={uploading}
+              style={{ flex: 1 }}
             >
-              {uploading ? "Indexing…" : "Ingest document"}
+              {uploading ? "Indexing…" : "Ingest Document"}
             </button>
             {!uploading && (
               <button
-                className="btn btn-ghost btn-sm"
+                className="btn btn-ghost"
                 onClick={() => {
                   setFile(null);
                   setStatus({ kind: "idle" });
@@ -125,20 +124,20 @@ export function UploadPanel({ onUploaded }: Props) {
       )}
 
       {status.kind === "success" && (
-        <div className="alert alert-success" style={{ marginTop: 10 }}>
-          <CheckIcon size={15} />
+        <div className="alert alert-success">
+          <CheckIcon size={16} />
           <span>{status.msg}</span>
         </div>
       )}
       {status.kind === "exists" && (
-        <div className="alert alert-warning" style={{ marginTop: 10 }}>
-          <AlertIcon size={15} />
-          <span>This document is already indexed.</span>
+        <div className="alert alert-warning">
+          <AlertIcon size={16} />
+          <span>This document is already indexed in the collection.</span>
         </div>
       )}
       {status.kind === "error" && (
-        <div className="alert alert-danger" style={{ marginTop: 10 }}>
-          <AlertIcon size={15} />
+        <div className="alert alert-danger">
+          <AlertIcon size={16} />
           <span>{status.msg}</span>
         </div>
       )}

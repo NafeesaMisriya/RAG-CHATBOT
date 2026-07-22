@@ -1,18 +1,14 @@
 [
     {
+        "name": "Biology_Genetics_7Pages_with_chart_table.pdf",
+        "collection": "biology_genetics_7pages_with_chart_table"
+    },
+    {
         "name": "real_image_test_pdf.pdf",
         "collection": "real_image_test_pdf"
     },
     {
         "name": "Biology_txt.pdf",
         "collection": "biology_txt"
-    },
-    {
-        "name": "Chemistry.pdf",
-        "collection": "chemistry"
-    },
-    {
-        "name": "English.pdf",
-        "collection": "english"
     }
 ]

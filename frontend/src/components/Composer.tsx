@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from "react";
-import { SendIcon, StopIcon } from "./icons";
+import { SendIcon, StopIcon, PaperclipIcon } from "./icons";
 
 interface Props {
   disabled: boolean;
@@ -30,6 +30,16 @@ export function Composer({ disabled, isStreaming, onSend, onStop }: Props) {
   return (
     <div className="composer-wrap">
       <div className="composer">
+        <button
+          className="icon-btn"
+          disabled={disabled}
+          title="Add attachment (mock)"
+          aria-label="Add attachment"
+          style={{ marginBottom: 2 }}
+        >
+          <PaperclipIcon size={18} />
+        </button>
+
         <textarea
           ref={ref}
           rows={1}
@@ -44,23 +54,24 @@ export function Composer({ disabled, isStreaming, onSend, onStop }: Props) {
             }
           }}
         />
+
         {isStreaming ? (
           <button className="send-btn" onClick={onStop} title="Stop generating">
-            <StopIcon size={18} />
+            <StopIcon size={16} />
           </button>
         ) : (
           <button
             className="send-btn"
             onClick={submit}
             disabled={disabled || !text.trim()}
-            title="Send"
+            title="Send message"
           >
-            <SendIcon size={18} />
+            <SendIcon size={16} />
           </button>
         )}
       </div>
       <div className="composer-hint">
-        ConteXora answers from your document. Press Enter to send, Shift+Enter for a new line.
+        Enter to send, Shift+Enter for newline
       </div>
     </div>
   );

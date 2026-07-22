@@ -8,15 +8,33 @@ import { Sidebar } from "./components/Sidebar";
 import { ChatView } from "./components/ChatView";
 import { Composer } from "./components/Composer";
 import { NoDocument } from "./components/EmptyState";
-import { FileIcon, MenuIcon } from "./components/icons";
+import { UploadPanel } from "./components/UploadPanel";
+import { FileIcon, MenuIcon, SunIcon, MoonIcon, UserIcon, CloseIcon } from "./components/icons";
+import { LandingPage } from "./components/LandingPage";
 
 export default function App() {
   const { documents, loading, error, refresh } = useDocuments();
   const { theme, toggle } = useTheme();
 
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
-  const [online, setOnline] = useState<boolean | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  
+  // Lightweight router state tracking
+  const [path, setPath] = useState(() => window.location.pathname);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPath(window.location.pathname);
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const navigate = (newPath: string) => {
+    window.history.pushState({}, "", newPath);
+    setPath(newPath);
+  };
 
   const chat = useChat(activeCollection);
 
@@ -25,23 +43,7 @@ export default function App() {
     [documents, activeCollection],
   );
 
-  // Health poll for the connection indicator.
-  useEffect(() => {
-    let alive = true;
-    const check = async () => {
-      const ok = await api.health();
-      if (alive) setOnline(ok);
-    };
-    void check();
-    const id = setInterval(check, 20000);
-    return () => {
-      alive = false;
-      clearInterval(id);
-    };
-  }, []);
-
-  // Auto-select the first document once loaded (and keep selection valid
-  // after deletions).
+  // Auto-select the first document once loaded
   useEffect(() => {
     if (documents.length === 0) {
       setActiveCollection(null);
@@ -71,6 +73,10 @@ export default function App() {
     }
   };
 
+  if (path === "/" || path === "") {
+    return <LandingPage onExplore={() => navigate("/chat")} />;
+  }
+
   return (
     <div className="app">
       {sidebarOpen && (
@@ -83,12 +89,10 @@ export default function App() {
         loading={loading}
         error={error}
         activeCollection={activeCollection}
-        theme={theme}
         onSelect={handleSelect}
         onDelete={handleDelete}
-        onUploaded={refresh}
         onClearConversation={chat.clear}
-        onToggleTheme={toggle}
+        onOpenUpload={() => setUploadModalOpen(true)}
       />
 
       <main className="main">
@@ -101,32 +105,31 @@ export default function App() {
             <MenuIcon size={18} />
           </button>
 
-          <div className="doc-title">
-            {activeDoc ? (
-              <>
-                <span className="doc-icon">
-                  <FileIcon size={18} />
-                </span>
-                <span
-                  style={{
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {activeDoc.name}
-                </span>
-              </>
-            ) : (
+          {activeDoc ? (
+            <div className="active-doc-title">
+              <span className="doc-icon">
+                <FileIcon size={18} />
+              </span>
+              <span className="doc-select-title">{activeDoc.name}</span>
+            </div>
+          ) : (
+            <div className="active-doc-title">
               <span className="muted">No document selected</span>
-            )}
-          </div>
+            </div>
+          )}
 
-          <div className="spacer" />
-
-          <div className={`status-dot ${online ? "online" : online === false ? "offline" : ""}`}>
-            <span className="dot" />
-            {online === null ? "Connecting…" : online ? "Connected" : "Offline"}
+          <div className="topbar-actions">
+            <button
+              className="icon-btn"
+              onClick={toggle}
+              title={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
+              aria-label="Toggle theme"
+            >
+              {theme === "light" ? <MoonIcon size={18} /> : <SunIcon size={18} />}
+            </button>
+            <button className="icon-btn" title="Settings & Profile" aria-label="Profile">
+              <UserIcon size={18} />
+            </button>
           </div>
         </header>
 
@@ -148,6 +151,29 @@ export default function App() {
           </>
         )}
       </main>
+
+      {uploadModalOpen && (
+        <div className="modal-overlay" onClick={() => setUploadModalOpen(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <span className="modal-title">Upload Document</span>
+              <button
+                className="modal-close"
+                onClick={() => setUploadModalOpen(false)}
+                aria-label="Close upload modal"
+              >
+                <CloseIcon size={18} />
+              </button>
+            </div>
+            <UploadPanel
+              onUploaded={() => {
+                setUploadModalOpen(false);
+                void refresh();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -15,9 +15,6 @@ python-dotenv
 fastapi
 uvicorn
 
-# Streamlit Frontend
-streamlit
-
 # Groq LLM
 groq
 

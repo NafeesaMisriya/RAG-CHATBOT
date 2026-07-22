@@ -14,6 +14,8 @@ from app.query_rewriting.query_rewriter import (
     QueryRewriter
 )
 
+from app.chat.router import QueryRouter
+
 
 # Image selection.
 #
@@ -760,6 +762,14 @@ class RAGChatbot:
 
             history = []
 
+        intent_type, friendly_response = QueryRouter.classify_and_respond(question)
+        if intent_type == "GENERAL_CHAT":
+            return {
+                "answer": friendly_response,
+                "sources": [],
+                "images": []
+            }
+
         (
             generation_contexts,
             source_contexts,
@@ -822,6 +832,25 @@ class RAGChatbot:
         if history is None:
 
             history = []
+
+        intent_type, friendly_response = QueryRouter.classify_and_respond(question)
+        if intent_type == "GENERAL_CHAT":
+            words = friendly_response.split(" ")
+            for i, word in enumerate(words):
+                chunk = (word + " ") if i < len(words) - 1 else word
+                yield {
+                    "type": "token",
+                    "data": chunk
+                }
+            yield {
+                "type": "sources",
+                "data": []
+            }
+            yield {
+                "type": "images",
+                "data": []
+            }
+            return
 
         (
             generation_contexts,

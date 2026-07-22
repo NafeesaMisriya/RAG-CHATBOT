@@ -1,7 +1,6 @@
 import type { DocumentInfo } from "../types";
 import { DocumentList } from "./DocumentList";
-import { UploadPanel } from "./UploadPanel";
-import { SunIcon, MoonIcon, PlusIcon } from "./icons";
+import { PlusIcon, SettingsIcon } from "./icons";
 
 interface Props {
   open: boolean;
@@ -9,12 +8,10 @@ interface Props {
   loading: boolean;
   error: string | null;
   activeCollection: string | null;
-  theme: "light" | "dark";
   onSelect: (doc: DocumentInfo) => void;
   onDelete: (doc: DocumentInfo) => void;
-  onUploaded: () => void;
   onClearConversation: () => void;
-  onToggleTheme: () => void;
+  onOpenUpload: () => void;
 }
 
 export function Sidebar({
@@ -23,12 +20,10 @@ export function Sidebar({
   loading,
   error,
   activeCollection,
-  theme,
   onSelect,
   onDelete,
-  onUploaded,
   onClearConversation,
-  onToggleTheme,
+  onOpenUpload,
 }: Props) {
   return (
     <aside className={`sidebar ${open ? "open" : ""}`}>
@@ -36,14 +31,16 @@ export function Sidebar({
         <img className="brand-logo" src="/contexora-mark.png" alt="ConteXora logo" />
         <div className="brand-text">
           <div className="brand-name">
-            <span className="hi">ConteX</span>ora
+            <span>ConteX</span>ora
           </div>
           <div className="brand-tag">Transforming Context into Intelligence</div>
         </div>
       </div>
 
       <div className="sidebar-scroll">
-        <UploadPanel onUploaded={onUploaded} />
+        <button className="btn btn-primary" onClick={onOpenUpload} title="Upload a new PDF document">
+          <PlusIcon size={16} /> Add Document
+        </button>
 
         {error && (
           <div className="alert alert-danger">
@@ -67,15 +64,14 @@ export function Sidebar({
           disabled={!activeCollection}
           title="Start a fresh conversation for this document"
         >
-          <PlusIcon size={15} /> New chat
+          <PlusIcon size={15} /> New Chat
         </button>
         <button
           className="icon-btn"
-          onClick={onToggleTheme}
-          title={theme === "light" ? "Switch to dark" : "Switch to light"}
-          aria-label="Toggle theme"
+          title="Settings"
+          aria-label="Settings"
         >
-          {theme === "light" ? <MoonIcon size={17} /> : <SunIcon size={17} />}
+          <SettingsIcon size={18} />
         </button>
       </div>
     </aside>

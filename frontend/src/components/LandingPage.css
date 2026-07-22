@@ -1,0 +1,575 @@
+/* =========================================================
+   ConteXora Landing Page CSS
+   ========================================================= */
+
+.landing-container {
+  min-height: 100vh;
+  background-color: #f7f4ed; /* Warm beige/cream background matching the mockup */
+  color: #0b1626; /* Deep navy text color */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-family: "Inter", -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+/* =========================================================
+   Header Styling
+   ========================================================= */
+.landing-header {
+  height: 80px;
+  padding: 0 4%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: transparent;
+  border-bottom: 1px solid rgba(11, 22, 38, 0.05);
+}
+
+.landing-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.landing-brand-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.landing-brand-name {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #0b1626;
+  line-height: 1;
+}
+
+.landing-brand-tagline {
+  font-size: 0.72rem;
+  color: #c99a2e; /* Gold tagline */
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.landing-nav {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+}
+
+.landing-nav-link {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #4a5464;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  position: relative;
+  padding: 4px 0;
+}
+
+.landing-nav-link:hover, 
+.landing-nav-link.active {
+  color: #0b1626;
+}
+
+.landing-nav-link.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background-color: #c99a2e; /* Gold active indicator */
+  border-radius: 2px;
+}
+
+.header-right-group {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-divider {
+  width: 1px;
+  height: 28px;
+  background-color: rgba(11, 22, 38, 0.15); /* vertical line divider */
+}
+
+.landing-signin-btn {
+  background-color: #0b1626; /* Dark navy pill */
+  color: #ffffff;
+  padding: 10px 22px;
+  border-radius: 99px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 10px rgba(11, 22, 38, 0.15);
+  transition: all 0.2s ease;
+}
+
+.landing-signin-btn:hover {
+  background-color: #172b49;
+  transform: translateY(-1px);
+}
+
+/* =========================================================
+   Hero Section Styling
+   ========================================================= */
+.landing-hero {
+  flex: 1;
+  padding: 4% 8%;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  align-items: center;
+  gap: 64px;
+}
+
+.landing-hero-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.landing-headline {
+  font-size: 3.8rem;
+  font-weight: 800;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  color: #0b1626;
+  margin-bottom: 16px;
+}
+
+.gold-text {
+  color: #c99a2e; /* Gold color */
+}
+
+.landing-headline-underline {
+  width: 80px;
+  height: 3px;
+  background-color: #c99a2e;
+  margin-bottom: 24px;
+  border-radius: 2px;
+}
+
+.landing-subtitle {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: #4a5464;
+  margin-bottom: 36px;
+  max-width: 480px;
+}
+
+.landing-cta-btn {
+  background-color: #0b1626;
+  color: #ffffff;
+  padding: 14px 28px;
+  border-radius: 99px;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 6px 18px rgba(11, 22, 38, 0.25);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.landing-cta-btn svg:first-of-type {
+  color: #c99a2e; /* Sparkles colored gold */
+}
+
+.landing-cta-btn:hover {
+  background-color: #172b49;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(11, 22, 38, 0.3);
+}
+
+/* =========================================================
+   Hero Right / Circuit Board Illustration
+   ========================================================= */
+.landing-hero-right {
+  position: relative;
+  height: 440px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* Background schematic circuit circles */
+.circuit-board-bg {
+  position: absolute;
+  right: -5%;
+  width: 340px;
+  height: 340px;
+  background: radial-gradient(circle, transparent 40%, rgba(201, 154, 46, 0.03) 70%);
+  border: 1px solid rgba(201, 154, 46, 0.08);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.circuit-board-bg::before {
+  content: "";
+  position: absolute;
+  inset: 15%;
+  border: 1px dashed rgba(201, 154, 46, 0.12);
+  border-radius: 50%;
+}
+
+/* Central Rounded Logo Shield with metallic inner border */
+.landing-hero-logo-panel {
+  position: absolute;
+  right: 5%;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background-color: #0b1626; /* Dark navy circle base */
+  border: 4px solid #c99a2e; /* Gold border frame */
+  box-shadow: 0 12px 36px rgba(11, 22, 38, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.inner-shield {
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  border: 2px dashed rgba(201, 154, 46, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.landing-large-logo {
+  width: 130px;
+  height: 130px;
+  object-fit: contain;
+}
+
+/* Golden circuit line terminals extending out to the right of the circle */
+.gold-terminals {
+  position: absolute;
+  left: 95%;
+  top: 0;
+  bottom: 0;
+  width: 140px;
+  pointer-events: none;
+}
+
+.terminal-line {
+  position: absolute;
+  height: 2px;
+  background-color: #c99a2e;
+  transform-origin: left center;
+}
+
+.terminal-dot {
+  position: absolute;
+  right: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #f7f4ed; /* cream fill */
+  border: 2.5px solid #c99a2e; /* gold border */
+}
+
+.t-top {
+  top: 32%;
+  width: 75px;
+  transform: rotate(-30deg);
+}
+
+.t-mid {
+  top: 50%;
+  width: 90px;
+  transform: rotate(0deg);
+}
+
+.t-bot {
+  top: 68%;
+  width: 75px;
+  transform: rotate(30deg);
+}
+
+/* Feature Nodes absolute alignment on the left of central shield */
+.feature-node {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.feature-node.documents { top: 8%; left: 0%; }
+.feature-node.images { top: 31%; left: -14%; }
+.feature-node.tables { top: 54%; left: -16%; }
+.feature-node.knowledge { top: 77%; left: -8%; }
+
+.feature-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(11, 22, 38, 0.08);
+  border-radius: 12px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(11, 22, 38, 0.06);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0b1626;
+  min-width: 130px;
+  transition: transform 0.2s ease;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+}
+
+.feature-card svg {
+  color: #c99a2e; /* Icon color gold */
+}
+
+/* Connector Lines - dashed diagonal lines leading to center shield */
+.connector-line {
+  position: absolute;
+  left: 100%;
+  height: 2px;
+  border-bottom: 2px dashed rgba(201, 154, 46, 0.45);
+  pointer-events: none;
+}
+
+.line-documents {
+  top: 50%;
+  width: 105px;
+  transform: rotate(18deg);
+  transform-origin: left center;
+}
+
+.line-images {
+  top: 50%;
+  width: 145px;
+  transform: rotate(8deg);
+  transform-origin: left center;
+}
+
+.line-tables {
+  top: 50%;
+  width: 145px;
+  transform: rotate(-8deg);
+  transform-origin: left center;
+}
+
+.line-knowledge {
+  top: 50%;
+  width: 105px;
+  transform: rotate(-18deg);
+  transform-origin: left center;
+}
+
+/* =========================================================
+   Footer Styling
+   ========================================================= */
+.landing-footer {
+  background-color: #08192e; /* Dark navy background */
+  position: relative;
+  padding-bottom: 40px;
+}
+
+.footer-wave-container {
+  width: 100%;
+  overflow: hidden;
+  line-height: 0;
+  margin-top: -30px; /* pull up to blend smoothly */
+  background: transparent;
+}
+
+.footer-wave-container svg {
+  width: 100%;
+  height: 60px;
+}
+
+.landing-footer-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 4% 0;
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  align-items: center;
+  gap: 48px;
+}
+
+/* Footer Quote Block */
+.landing-footer-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: #ffffff;
+}
+
+.quote-mark {
+  font-size: 2.2rem;
+  color: #c99a2e; /* Gold quote */
+  font-weight: 700;
+  line-height: 1;
+}
+
+.landing-footer-tagline {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Footer Step Cards styling */
+.landing-footer-right {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.footer-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  padding: 12px 4px;
+  position: relative;
+}
+
+/* Vertical divider lines between step blocks */
+.footer-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: -8px;
+  top: 15%;
+  bottom: 15%;
+  width: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.step-icon {
+  color: #c99a2e; /* Gold icons */
+}
+
+.step-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.step-title {
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.step-desc {
+  color: #c99a2e;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+/* =========================================================
+   Responsive Media Queries
+   ========================================================= */
+@media (max-width: 1160px) {
+  .feature-node.documents { left: 4% !important; }
+  .feature-node.images { left: -6% !important; }
+  .feature-node.tables { left: -8% !important; }
+  .feature-node.knowledge { left: -2% !important; }
+  
+  .line-documents { width: 85px; }
+  .line-images { width: 115px; }
+  .line-tables { width: 115px; }
+  .line-knowledge { width: 85px; }
+}
+
+@media (max-width: 1024px) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+    gap: 48px;
+    text-align: center;
+    padding: 8% 4%;
+  }
+
+  .landing-hero-left {
+    align-items: center;
+    text-align: center;
+  }
+
+  .landing-subtitle {
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .landing-hero-right {
+    justify-content: center;
+    height: 400px;
+  }
+
+  .landing-hero-logo-panel {
+    right: 50%;
+    transform: translateX(50%);
+  }
+
+  .circuit-board-bg {
+    right: 50%;
+    transform: translateX(50%);
+  }
+
+  .gold-terminals,
+  .connector-line {
+    display: none; /* Hide connectors and gold terminals on mobile to preserve layout */
+  }
+
+  .feature-node.documents { top: 0% !important; left: 10% !important; }
+  .feature-node.images { top: 25% !important; left: 0% !important; }
+  .feature-node.tables { top: 55% !important; left: 0% !important; }
+  .feature-node.knowledge { top: 80% !important; left: 10% !important; }
+
+  .landing-footer-content {
+    grid-template-columns: 1fr;
+    gap: 36px;
+    text-align: center;
+  }
+
+  .landing-footer-left {
+    justify-content: center;
+  }
+
+  .landing-footer-right {
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .footer-step:not(:last-child)::after {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-header {
+    flex-direction: column;
+    height: auto;
+    padding: 16px 4%;
+    gap: 16px;
+  }
+
+  .landing-nav {
+    gap: 16px;
+  }
+
+  .landing-headline {
+    font-size: 2.5rem;
+  }
+
+  .landing-footer-right {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
