@@ -8,14 +8,20 @@ services:
       - key: LLM_PROVIDER
         value: groq
       - key: GROQ_API_KEY
-        sync: false # User will provide this in Render dashboard
+        sync: false
       - key: GROQ_MODEL
         value: llama-3.3-70b-versatile
       - key: GROQ_REWRITE_MODEL
         value: llama-3.1-8b-instant
+      - key: EMBEDDING_PROVIDER
+        value: gemini # Use cloud embeddings to save Render memory
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: RERANK_ENABLED
+        value: "false" # Disable local reranker model to stay under 512MB RAM
       - key: CAPTION_PROVIDER
-        value: blip
+        value: gemini # Use Gemini API for image captions instead of loading local BLIP model
       - key: QDRANT_URL
-        sync: false # User will provide this in Render dashboard
+        sync: false
       - key: QDRANT_API_KEY
-        sync: false # User will provide this in Render dashboard
+        sync: false
