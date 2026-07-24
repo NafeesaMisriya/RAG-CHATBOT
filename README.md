@@ -1,10 +1,6 @@
-<<<<<<< HEAD
 # ConteXora| Transforming context into Intelligence 
-=======
-# DocuMind (ConteXora) / RAG Document Intelligence Chatbot
->>>>>>> 6cff2cf (UI improvements)
 
-DocuMind (also referred to as **ConteXora** in the generator prompts) is a production-grade, full-stack Retrieval-Augmented Generation (RAG) application designed for chatting with PDF documents. Users can upload one or more PDFs, extract text, tables, and images, build vector indexes, and ask natural language questions. The system yields grounded, context-aware answers complete with page-specific source references and image/figure overlays.
+ **ConteXora** is a production-grade, full-stack Retrieval-Augmented Generation (RAG) application designed for chatting with PDF documents. Users can upload one or more PDFs, extract text, tables, and images, build vector indexes, and ask natural language questions. The system yields grounded, context-aware answers complete with page-specific source references and image/figure overlays.
 
 This repository integrates:
 - A **FastAPI** backend exposing REST and Server-Sent Events (SSE) streaming API endpoints.
