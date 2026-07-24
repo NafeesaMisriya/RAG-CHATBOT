@@ -58,34 +58,62 @@ app.mount(
     name="files"
 )
 
+from fastapi.responses import FileResponse
+
 app.include_router(
-    chat_router
+    chat_router,
+    prefix="/api"
 )
 
 app.include_router(
-    documents_router
+    documents_router,
+    prefix="/api"
 )
 
 app.include_router(
-    upload_router
+    upload_router,
+    prefix="/api"
 )
 
 app.include_router(
-    stream_router
+    stream_router,
+    prefix="/api"
 )
 
 app.include_router(
-    delete_router
+    delete_router,
+    prefix="/api"
 )
 
 app.include_router(
-    health_router
+    health_router,
+    prefix="/api"
 )
 
-@app.get("/")
-def home():
+if os.path.exists("frontend/dist"):
+    # Serve index.html at root "/"
+    @app.get("/")
+    def serve_frontend_root():
+        return FileResponse("frontend/dist/index.html")
 
-    return {
-        "message":
-        "DocuMind API Running"
-    }
+    # Mount static assets
+    app.mount(
+        "/assets",
+        StaticFiles(directory="frontend/dist/assets"),
+        name="assets"
+    )
+
+    # SPA routing catch-all
+    @app.get("/{file_name:path}")
+    async def serve_static(file_name: str):
+        file_path = os.path.join("frontend/dist", file_name)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse("frontend/dist/index.html")
+else:
+    @app.get("/")
+    def home():
+        return {
+            "message":
+            "DocuMind API Running"
+        }

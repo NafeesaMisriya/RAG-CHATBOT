@@ -1,0 +1,15 @@
+node_modules/
+venv/
+.env
+.git/
+data/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.vscode/
+.idea/
+*.log
