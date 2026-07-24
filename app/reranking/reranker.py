@@ -1,15 +1,15 @@
-import os
+from sentence_transformers import (
+    CrossEncoder
+)
+
 
 class Reranker:
 
     def __init__(self):
-        self.enabled = os.environ.get("RERANK_ENABLED", "true").lower() == "true"
-        if self.enabled:
-            # Lazy import to prevent loading heavy torch/transformers into memory in cloud
-            from sentence_transformers import CrossEncoder
-            self.model = CrossEncoder(
-                "cross-encoder/ms-marco-MiniLM-L-12-v2"
-            )
+
+        self.model = CrossEncoder(
+            "cross-encoder/ms-marco-MiniLM-L-12-v2"
+        )
 
     def rerank(
         self,
@@ -21,15 +21,6 @@ class Reranker:
         if not contexts:
 
             return []
-
-        if not self.enabled:
-            # Return original contexts sorted by their retriever hybrid_score/score
-            contexts_sorted = sorted(
-                contexts,
-                key=lambda x: x.get("hybrid_score", x.get("score", 0)),
-                reverse=True
-            )
-            return contexts_sorted[:top_k]
 
         pairs = [
 
